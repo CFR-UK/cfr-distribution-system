@@ -1,0 +1,339 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Global transitions */
+@layer base {
+  html {
+    @apply transition-colors duration-300 ease-in-out;
+  }
+}
+
+/* Hide scrollbar but allow scrolling */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;     /* Firefox */
+}
+
+/* PrimeReact dropdown focus styles */
+.p-dropdown:focus,
+.p-dropdown.p-focus,
+.p-dropdown-items-wrapper:focus {
+  box-shadow: none !important;
+  outline: none !important;
+  
+}
+
+.p-dropdown-label.p-inputtext.p-placeholder {
+  font-size: 13px;
+  color: #737791;
+}
+
+.p-dropdown-label.p-inputtext {
+  font-size: 13px;
+  color: black;
+}
+
+.p-dropdown{
+  align-items: center;
+}
+
+
+.dark .p-inputtext.p-component{
+  background-color: #0D0D0D;
+}
+
+
+/* Base paginator buttons (pill shape) */
+.custom-paginator .p-paginator-page,
+.custom-paginator .p-paginator-first,
+.custom-paginator .p-paginator-prev,
+.custom-paginator .p-paginator-next,
+.custom-paginator .p-paginator-last {
+  @apply h-7 px-2 text-[12px] inline-flex items-center justify-center 
+         text-[#EA7D00] font-normal border border-transparent 
+         transition-all duration-200 rounded-full;
+}
+
+/* Hover effect */
+.custom-paginator .p-paginator-page:hover {
+  @apply border-[#EA7D00] bg-[#f3f3ff] dark:bg-[#0D0D0D];
+}
+
+/* Selected page: fixed circle with purple background */
+.custom-paginator .p-paginator-page.p-highlight {
+  @apply w-7 h-7 bg-[#EA7D00] text-white dark:text-black !px-0 !mx-1 !rounded-full;
+}
+
+.custom-paginator .p-paginator-page.p-highlight:hover {
+  @apply  dark:text-[#EA7D00];
+}
+.custom-paginator{
+  @apply dark:bg-[#0D0D0D] p-0
+}
+
+/* menu item side bar */
+.p-tieredmenu .p-menuitem > .p-menuitem-content {
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+  border-radius: 0 !important;
+}
+
+/* Remove hover/focus/active backgrounds */
+.p-tieredmenu .p-menuitem > .p-menuitem-content:hover,
+.p-tieredmenu .p-menuitem > .p-menuitem-content:focus,
+.p-tieredmenu .p-menuitem > .p-menuitem-content:active {
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* add */
+.p-calendar.p-focus,
+.p-calendar.p-focus > .p-inputtext,
+.p-datepicker-trigger.p-button,
+.p-datepicker-trigger.p-button:focus {
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* Optional: remove inner input border */
+.p-calendar.p-focus > .p-inputtext {
+  border: none !important;
+}
+
+/* === Dark Theme Specific === */
+.dark .p-calendar.p-focus {
+  border: 1px solid #A9A9CD !important;
+}
+
+.dark .p-datepicker-trigger.p-button {
+  background-color: transparent !important;
+  color: #A9A9CD !important;
+}
+
+.dark .p-datepicker-trigger.p-button:focus {
+  border: 1px solid #A9A9CD !important;
+}
+
+/* === Light Theme (Optional) === */
+.p-calendar.p-focus {
+  border: 1px solid #73779140 !important;
+}
+
+.p-datepicker-trigger.p-button {
+  background-color: transparent !important;
+  color: #3B3B3B !important;
+}
+
+.p-datepicker-trigger.p-button:focus {
+  border: 1px solid #737791 !important;
+}
+
+/* end */
+
+.dark .p-dropdown-panel {
+  background-color: #0D0D0D !important;
+  color: #A9A9CD !important;
+}
+
+/* Style each dropdown item */
+.dark .p-dropdown-items .p-dropdown-item {
+  background: #0D0D0D !important;
+  color: #A9A9CD !important;
+}
+
+/* Hover style */
+.dark .p-dropdown-items .p-dropdown-item:hover {
+  background-color: #1F1F1F !important;
+  color: #A9A9CD !important;
+}
+
+/* For the item that's selected or focused */
+.dark .p-dropdown-items .p-dropdown-item.p-highlight,
+.dark .p-dropdown-items .p-dropdown-item.p-highlight:focus,
+.dark .p-dropdown-items .p-dropdown-item.p-highlight:hover {
+  background-color: #1F1F1F !important;
+  color: #A9A9CD !important;
+}
+
+/* Prevent white flash when the options close */
+.dark .p-dropdown-items .p-dropdown-item.selected {
+  background-color: #1F1F1F !important;
+  color: #A9A9CD !important;
+}
+
+/* Dropdown placeholder in dark mode */
+.dark .p-dropdown-label.p-placeholder {
+  color: #A9A9CD !important;
+}
+
+/* Selected value in dark mode */
+.dark .p-dropdown-label {
+  color: #A9A9CD !important;
+  font-size: 14px !important;
+}
+
+/* timePicker */
+.dark .custom-time-panel {
+  background-color: #0D0D0D !important;
+  color: #A9A9CD !important;
+  border: 1px solid #2C2C2E !important;
+}
+
+.dark .custom-time-panel * {
+  background-color: transparent !important;
+  color: #A9A9CD !important;
+  border-color: #2C2C2E !important;
+}
+
+/* password field */
+.p-password .p-icon-field {
+  width: 100% !important;
+}
+
+.my-delete-table.p-datatable-sm .p-datatable-thead > tr > th:last-child,
+.my-delete-table.p-datatable-sm .p-datatable-tbody > tr > td:last-child {
+  padding-right: 10px !important;
+  width: 1% !important;
+  white-space: nowrap !important;
+}
+
+/* calender cross icon */
+.react-datepicker__close-icon {
+  position: absolute !important;
+  right: 10px !important;   /* move inside input */
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  width: 20px !important;
+  height: 20px !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Style the X itself */
+.react-datepicker__close-icon::after {
+  content: "×";
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-size: 14px;
+  line-height: 1;
+  background-color: #EA7D00 !important;
+  color: #fff !important;
+  border-radius: 50%;
+}
+
+/* 🌞 Light Theme Styles */
+/* ===================== */
+.react-datepicker {
+  background-color: #ffffff !important; /* White calendar */
+  color: #000000 !important;            /* Black text */
+  border: 1px solid #ddd !important;
+}
+
+.react-datepicker__header {
+  background-color: #ffffff !important;
+  border-bottom: 1px solid #ddd !important;
+}
+
+.react-datepicker__current-month,
+.react-datepicker-time__header,
+.react-datepicker-year-header,
+.react-datepicker__day-name,
+.react-datepicker__day {
+  color: #000000 !important; /* Black text */
+}
+
+/* Selected date (single) */
+.react-datepicker__day--selected,
+.react-datepicker__day--keyboard-selected {
+  background-color: #EA7D00 !important;
+  color: #ffffff !important; /* White text */
+  border-radius: 50% !important;
+}
+
+/* Range start and end */
+.react-datepicker__day--range-start,
+.react-datepicker__day--range-end {
+  background-color: #EA7D00 !important;
+  color: #ffffff !important;
+  border-radius: 50% !important;
+}
+
+/* Days in between range */
+.react-datepicker__day--in-range,
+.react-datepicker__day--in-selecting-range {
+  background-color: rgba(93, 95, 239, 0.2) !important;
+  color: #000000 !important;
+}
+
+/* Today highlight */
+.react-datepicker__day--today {
+  border: 1px solid #EA7D00 !important;
+  /* color: black !important; */
+}
+
+/* ===================== */
+/* 🌙 Dark Theme Styles  */
+/* ===================== */
+.dark .react-datepicker {
+  background-color: #000000 !important; /* Black calendar */
+  color: #ffffff !important;            /* White text */
+  border: 1px solid #333 !important;
+}
+
+.dark .react-datepicker__header {
+  background-color: #000000 !important;
+  border-bottom: 1px solid #333 !important;
+}
+
+.dark .react-datepicker__current-month,
+.dark .react-datepicker-time__header,
+.dark .react-datepicker-year-header,
+.dark .react-datepicker__day-name,
+.dark .react-datepicker__day {
+  color: #ffffff !important; /* White text */
+}
+
+/* Selected date (single) */
+.dark .react-datepicker__day--selected,
+.dark .react-datepicker__day--keyboard-selected {
+  background-color: #EA7D00 !important;
+  color: #000000 !important;
+  border-radius: 50% !important;
+}
+
+/* Range start and end */
+.dark .react-datepicker__day--range-start,
+.dark .react-datepicker__day--range-end {
+  background-color: #EA7D00 !important;
+  color: #000000 !important;
+  border-radius: 50% !important;
+}
+
+/* Days in between range */
+.dark .react-datepicker__day--in-range,
+.dark .react-datepicker__day--in-selecting-range {
+  background-color: rgba(93, 95, 239, 0.3) !important;
+  color: #ffffff !important;
+}
+
+/* Today highlight */
+.dark .react-datepicker__day--today {
+  border: 1px solid #EA7D00 !important;
+  /* color: #EA7D00 !important; */
+}
+
+
+.react-datepicker-wrapper {
+  width: 100% !important;
+}

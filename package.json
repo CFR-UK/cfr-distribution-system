@@ -1,0 +1,48 @@
+{
+  "name": "distribution-system",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@iconify/react": "^6.0.1",
+    "chart.js": "^4.5.0",
+    "date-fns": "^4.1.0",
+    "emoji-picker-react": "^4.13.3",
+    "framer-motion": "^12.23.12",
+    "highcharts": "^12.3.0",
+    "highcharts-react-official": "^3.2.2",
+    "lucide-react": "^0.544.0",
+    "primeicons": "^7.0.0",
+    "primereact": "^10.9.7",
+    "react": "^19.1.1",
+    "react-chartjs-2": "^5.3.0",
+    "react-date-range": "^2.0.1",
+    "react-datepicker": "^8.7.0",
+    "react-dom": "^19.1.1",
+    "react-quill-new": "^3.6.0",
+    "react-router-dom": "^7.8.2",
+    "react-transition-group": "^4.4.5",
+    "tailwind-scrollbar": "^4.0.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.33.0",
+    "@types/react": "^19.1.10",
+    "@types/react-dom": "^19.1.7",
+    "@vitejs/plugin-react": "^5.0.0",
+    "autoprefixer": "^10.4.21",
+    "eslint": "^9.33.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.20",
+    "globals": "^16.3.0",
+    "postcss": "^8.5.6",
+    "tailwind-scrollbar-hide": "^4.0.0",
+    "tailwindcss": "^3.4.1",
+    "vite": "^7.1.2"
+  }
+}
