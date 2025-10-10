@@ -5,10 +5,10 @@ import { Column } from "primereact/column";
 import SearchBox from "@/components/SearchBox";
 import CustomPaginator from "@/components/CustomPaginator";
 import { useModal } from "@/context/ModalContext";
-import WorkflowConfigureModal from "../modals/WorkflowConfigureModal";
-import AddNewRoleModal from "../modals/AddNewRoleModal";
-import ViewPermissionsModal from "../modals/ViewPermissionsModal";
-import EditRoleAndPermissionsModal from "../modals/EditRoleAndPermissionsModal";
+import WorkflowConfigureModal from "../Modals/WorkflowConfigureModal";
+import AddNewRoleModal from "../Modals/AddNewRoleModal";
+import ViewPermissionsModal from "../Modals/ViewPermissionsModal";
+import EditRoleAndPermissionsModal from "../Modals/EditRoleAndPermissionsModal";
 import ActionButton from "./ActionButton";
 
 // ✅ Tab titles
