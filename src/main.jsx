@@ -2,7 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import "./index.css";
 import App from "./App.jsx";
-import { ThemeProvider } from "./Context/ThemeContext";
+import { ThemeProvider } from "./context/ThemeContext";
 import { ModalProvider } from "./context/ModalContext";
 import { PinProvider } from "./context/PinContext";
 import { BrowserRouter } from "react-router-dom";

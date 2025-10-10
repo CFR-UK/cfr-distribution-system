@@ -1,4 +1,4 @@
-import { useTheme } from "../Context/ThemeContext";
+import { useTheme } from "../context/ThemeContext";
 import { Icon } from "@iconify/react";
 
 export default function ThemeToggle({
