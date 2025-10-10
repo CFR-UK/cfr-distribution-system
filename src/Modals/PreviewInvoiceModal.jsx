@@ -1,4 +1,4 @@
-import Logo from "../Components/Logo";
+import Logo from "../components/Logo";
 import { Skeleton } from "primereact/skeleton";
 import ActionButton from "../components/ActionButton";
 import { useState, useEffect } from "react";

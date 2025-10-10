@@ -29,7 +29,7 @@ import ResetCode from "./Pages/ResetCode.jsx";
 import WelcomeScreen from "./Pages/WelcomeScreen.jsx";
 import NewPassword from "./Pages/NewPassword.jsx";
 import Notification from "./Pages/NotificationPage.jsx";
-import Chat from "./Components/ChatPanel.jsx";
+import Chat from "./components/ChatPanel.jsx";
 
 function App() {
   return (

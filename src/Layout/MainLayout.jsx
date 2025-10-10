@@ -1,6 +1,6 @@
 import { Outlet, useLocation } from "react-router-dom";
-import Topbar from "../Components/Topbar";
-import TopBarMenu from "../Components/TopBarMenu";
+import Topbar from "../components/Topbar";
+import TopBarMenu from "../components/TopBarMenu";
 import { AnimatePresence, motion } from "framer-motion";
 
 export default function MainLayout() {
