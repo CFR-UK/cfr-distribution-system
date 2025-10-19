@@ -403,7 +403,7 @@ const users = [
   { id: 10, name: "Olivia Thomas", avatar: "/avatar1.png", online: true },
   { id: 11, name: "Ali Ahmed", avatar: "/avatar1.png", online: true },
   { id: 12, name: "Shoaib Ahmed", avatar: "/avatar2.png", online: true },
-  { id: 13, name: "Shoaib Akhtar", avatar: "/avatar4.png", online: true },
+  { id: 13, name: "Shoaib Akhtar", avatar: "/avatar1.png", online: true },
 ];
 
 export default function ChatPanel({ username = "Hasnain" }) {
@@ -434,6 +434,12 @@ export default function ChatPanel({ username = "Hasnain" }) {
   const [selectedMemberIds, setSelectedMemberIds] = useState([]);
   const [activePanel, setActivePanel] = useState("home");
   const [activeTab, setActiveTab] = useState("messages");
+  const [showFilePanel, setShowFilePanel] = useState(false);
+  const [highlightedFileId, setHighlightedFileId] = useState(null);
+  const filePanelTimeoutRef = useRef(null);
+  const activityPanelTimeoutRef = useRef(null);
+  const [notifications, setNotifications] = useState([]);
+  const [readNotificationIds, setReadNotificationIds] = useState(new Set());
   const [replyBoxForMsgId, setReplyBoxForMsgId] = useState(null);
   const [replyText, setReplyText] = useState("");
   const replyInputRef = useRef(null);
@@ -449,6 +455,8 @@ export default function ChatPanel({ username = "Hasnain" }) {
   const [threadShowEmojiPicker, setThreadShowEmojiPicker] = useState(false);
   const [threadShowMentionList, setThreadShowMentionList] = useState(false);
   const [threadMentionSearch, setThreadMentionSearch] = useState("");
+  const [threadSelectedMentionIndex, setThreadSelectedMentionIndex] =
+    useState(0);
   const [threadAttachedFile, setThreadAttachedFile] = useState(null);
   const [threadAttachedPreviewUrl, setThreadAttachedPreviewUrl] =
     useState(null);
@@ -484,10 +492,42 @@ export default function ChatPanel({ username = "Hasnain" }) {
   const mentionListRef = useRef(null); // ref to the dropdown
   const [showMentionList, setShowMentionList] = useState(false);
   const [mentionSearch, setMentionSearch] = useState("");
+  const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
 
   const [showChannels, setShowChannels] = useState(true);
   const [showFavorites, setShowFavorites] = useState(true);
   const [showDirectMessages, setShowDirectMessages] = useState(true);
+  const [showThreadsPage, setShowThreadsPage] = useState(false);
+
+  // Threads page reply states
+  const [threadsPageReplyTexts, setThreadsPageReplyTexts] = useState({});
+  const [threadsPageShowEmojiPickers, setThreadsPageShowEmojiPickers] =
+    useState({});
+  const [threadsPageShowMentionLists, setThreadsPageShowMentionLists] =
+    useState({});
+  const [threadsPageMentionSearches, setThreadsPageMentionSearches] = useState(
+    {}
+  );
+  const [
+    threadsPageSelectedMentionIndexes,
+    setThreadsPageSelectedMentionIndexes,
+  ] = useState({});
+  const [threadsPageAttachedFiles, setThreadsPageAttachedFiles] = useState({});
+  const [threadsPageAttachedPreviewUrls, setThreadsPageAttachedPreviewUrls] =
+    useState({});
+  const threadsPageQuillRefs = useRef({});
+  const threadsPageFileInputRefs = useRef({});
+  const threadsPageMentionButtonRefs = useRef({});
+  const threadsPageMentionListRefs = useRef({});
+  const [threadsPageIsRecordingAudio, setThreadsPageIsRecordingAudio] =
+    useState({});
+  const [threadsPageIsRecordingVideo, setThreadsPageIsRecordingVideo] =
+    useState({});
+  const [threadsPageAudioBlobs, setThreadsPageAudioBlobs] = useState({});
+  const [threadsPageVideoBlobs, setThreadsPageVideoBlobs] = useState({});
+  const [threadsPageRecordingDuration, setThreadsPageRecordingDuration] =
+    useState({});
+  const [threadsPageIsPaused, setThreadsPageIsPaused] = useState({});
 
   // Default statuses (Slack-like)
   const defaultStatuses = [
@@ -1037,12 +1077,14 @@ export default function ChatPanel({ username = "Hasnain" }) {
             name: "You",
             text: "I'll take the intro section.",
             time: "9:12 AM",
+            status: "read",
           },
           {
             id: 102,
             name: "John Smith",
             text: "I'll handle references.",
             time: "9:13 AM",
+            status: "unread",
           },
         ],
       },
@@ -1067,12 +1109,14 @@ export default function ChatPanel({ username = "Hasnain" }) {
             name: "You",
             text: "I'll take the intro section.",
             time: "9:12 AM",
+            status: "read",
           },
           {
             id: 102,
             name: "John Smith",
             text: "I'll handle references.",
             time: "9:13 AM",
+            status: "unread",
           },
         ],
       },
@@ -1128,12 +1172,14 @@ export default function ChatPanel({ username = "Hasnain" }) {
             name: "Mike Chen",
             text: "Works for me!",
             time: "10:26 AM",
+            status: "unread",
           },
           {
             id: 202,
             name: "You",
             text: "Perfect, see you then.",
             time: "10:27 AM",
+            status: "read",
           },
         ],
       },
@@ -1193,6 +1239,7 @@ export default function ChatPanel({ username = "Hasnain" }) {
             name: "Joe Williams",
             text: "Thanks! I'll fix that today.",
             time: "3:32 PM",
+            status: "unread",
           },
         ],
       },
@@ -1288,12 +1335,14 @@ export default function ChatPanel({ username = "Hasnain" }) {
             name: "You",
             text: "Yes, let's prioritize it.",
             time: "3:31 PM",
+            status: "read",
           },
           {
             id: 502,
             name: "Sarah Jamieson",
             text: "I agree, this will improve UX significantly.",
             time: "3:32 PM",
+            status: "unread",
           },
         ],
       },
@@ -1388,6 +1437,7 @@ export default function ChatPanel({ username = "Hasnain" }) {
             name: "Alex Smith",
             text: "Good idea! I'll coordinate with you.",
             time: "5:46 PM",
+            status: "unread",
           },
         ],
       },
@@ -1438,16 +1488,6 @@ export default function ChatPanel({ username = "Hasnain" }) {
           .map((msg) => ({ chatId, ...msg }));
       })
     : [];
-
-  // Auto-scroll when messages update
-  useEffect(() => {
-    if (scrollRef.current) {
-      // Use setTimeout to ensure DOM is updated
-      setTimeout(() => {
-        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-      }, 100);
-    }
-  }, [messagesText, activeUser]);
 
   // Update favicon based on unread messages
   useEffect(() => {
@@ -1506,19 +1546,23 @@ export default function ChatPanel({ username = "Hasnain" }) {
 
   // Force scroll to bottom when switching users or opening chat
   useEffect(() => {
-    if (activeUser && scrollRef.current) {
+    if (activeUser && scrollRef.current && !showThreadsPage) {
       setTimeout(() => {
-        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        if (scrollRef.current) {
+          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
       }, 200);
     }
-  }, [activeUser?.id]);
+  }, [activeUser?.id, showThreadsPage]);
 
   // Auto-scroll thread to latest reply
   useEffect(() => {
     if (threadScrollRef.current && threadMsg?.replies) {
       setTimeout(() => {
-        threadScrollRef.current.scrollTop =
-          threadScrollRef.current.scrollHeight;
+        if (threadScrollRef.current) {
+          threadScrollRef.current.scrollTop =
+            threadScrollRef.current.scrollHeight;
+        }
       }, 100);
     }
   }, [threadMsg?.replies]);
@@ -1627,7 +1671,7 @@ export default function ChatPanel({ username = "Hasnain" }) {
 
       return sameItems ? prev : resolved;
     });
-  }, [activeUser, users, currentUser, groupMembers]);
+  }, [activeUser, users, currentUser]);
 
   const handleSend = () => {
     if (
@@ -1723,6 +1767,7 @@ export default function ChatPanel({ username = "Hasnain" }) {
     // set UI immediately
     setActiveUser(user);
     setSidebarOpen(false);
+    setShowThreadsPage(false);
 
     // initialize empty messages array for new users to ensure they appear in sidebar
     setMessages((prev) => ({
@@ -1732,6 +1777,12 @@ export default function ChatPanel({ username = "Hasnain" }) {
 
     // sync the URL (username-based)
     navigate(`/chat?user=${encodeURIComponent(user.name)}`, { replace: false });
+  };
+
+  const handleThreadsClick = () => {
+    setShowThreadsPage(true);
+    setActiveUser(null);
+    setSidebarOpen(false);
   };
 
   const toggleFavorite = (userId) => {
@@ -1792,6 +1843,7 @@ export default function ChatPanel({ username = "Hasnain" }) {
   });
 
   const activityRef = useRef(null);
+  const fileRef = useRef(null);
   const createPanelRef = useRef(null);
 
   useEffect(() => {
@@ -1802,6 +1854,13 @@ export default function ChatPanel({ username = "Hasnain" }) {
         activePanel === "activity"
       ) {
         setActivePanel("home"); // closes the panel
+      }
+      if (
+        fileRef.current &&
+        !fileRef.current.contains(e.target) &&
+        showFilePanel
+      ) {
+        setShowFilePanel(false); // closes the file panel
       }
       if (
         createPanelRef.current &&
@@ -1824,10 +1883,121 @@ export default function ChatPanel({ username = "Hasnain" }) {
   }, [
     activePanel,
     setActivePanel,
+    showFilePanel,
     showCreatePanel,
     showEditEmojiPicker,
     showMessageMenu,
   ]);
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (filePanelTimeoutRef.current) {
+        clearTimeout(filePanelTimeoutRef.current);
+      }
+      if (activityPanelTimeoutRef.current) {
+        clearTimeout(activityPanelTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Generate notifications from initial messages
+  const generateNotificationsFromMessages = () => {
+    const generatedNotifications = [];
+    let notificationId = 1;
+
+    Object.entries(initialMessages).forEach(([chatId, messages]) => {
+      messages.forEach((msg) => {
+        // Find chat name
+        let chatName = "Unknown Chat";
+        if (chatId) {
+          const user = users.find((u) => u.id === parseInt(chatId));
+          const channel = channels.find((c) => c.id === chatId);
+          if (user) chatName = user.name;
+          else if (channel) chatName = channel.name;
+        }
+
+        // Create notification based on message type and content
+        if (msg.status === "unread") {
+          // New message notification
+          generatedNotifications.push({
+            id: notificationId++,
+            type: "message",
+            title: `New message from ${msg.name}`,
+            message: msg.text,
+            time: msg.time,
+            chatId: parseInt(chatId),
+            chatName: chatName,
+            messageId: msg.id,
+            avatar: users.find((u) => u.id === parseInt(chatId))?.avatar,
+            unread: true,
+          });
+        }
+
+        // Check for reactions
+        if (msg.reactions && msg.reactions.length > 0) {
+          msg.reactions.forEach((reaction) => {
+            generatedNotifications.push({
+              id: notificationId++,
+              type: "reaction",
+              title: `${msg.name} reacted to your messa...`,
+              message: msg.text,
+              time: msg.time,
+              chatId: parseInt(chatId),
+              chatName: msg.name,
+              messageId: msg.id,
+              avatar: users.find((u) => u.id === parseInt(chatId))?.avatar,
+              unread: msg.status === "unread",
+              reactionEmoji: reaction.emoji,
+              reactionCount: reaction.count || 1,
+            });
+          });
+        }
+
+        // Check for mentions
+        if (msg.text && msg.text.includes("@Hasnain")) {
+          generatedNotifications.push({
+            id: notificationId++,
+            type: "mention",
+            title: `You were mentioned by ${msg.name}`,
+            message: msg.text,
+            time: msg.time,
+            chatId: parseInt(chatId),
+            chatName: chatName,
+            messageId: msg.id,
+            avatar: users.find((u) => u.id === parseInt(chatId))?.avatar,
+            unread: msg.status === "unread",
+          });
+        }
+
+        // Check for replies
+        if (msg.replies && msg.replies.length > 0) {
+          msg.replies.forEach((reply) => {
+            generatedNotifications.push({
+              id: notificationId++,
+              type: "reply",
+              title: `${reply.name} replied to your message`,
+              message: reply.text,
+              time: reply.time,
+              chatId: parseInt(chatId),
+              chatName: chatName,
+              messageId: msg.id,
+              avatar: users.find((u) => u.id === parseInt(chatId))?.avatar,
+              unread: msg.status === "unread",
+            });
+          });
+        }
+      });
+    });
+
+    return generatedNotifications;
+  };
+
+  // Initialize notifications from initial messages
+  useEffect(() => {
+    const generatedNotifications = generateNotificationsFromMessages();
+    setNotifications(generatedNotifications);
+  }, []);
 
   const normalizeMessages = (rawMessages) => {
     const normalized = {};
@@ -1845,6 +2015,18 @@ export default function ChatPanel({ username = "Hasnain" }) {
   const [messages, setMessages] = useState(() =>
     normalizeMessages(initialMessages)
   );
+
+  // Auto-scroll when messages update
+  useEffect(() => {
+    if (scrollRef.current && !showThreadsPage) {
+      // Use setTimeout to ensure DOM is updated
+      setTimeout(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
+      }, 100);
+    }
+  }, [messages, activeUser, showThreadsPage]);
 
   // Regular users filter - must be after messages state is defined
   const regularUsers = users.filter(
@@ -2074,10 +2256,21 @@ export default function ChatPanel({ username = "Hasnain" }) {
     if (threadQuillRef.current) {
       const quill = threadQuillRef.current.getEditor();
       const range = quill.getSelection();
-      if (range) {
-        quill.insertText(range.index, `@${member.name} `);
+      const index = range ? range.index : quill.getLength();
+
+      // Find the last @ and replace it with the mention
+      const text = quill.getText();
+      const lastAtIndex = text.lastIndexOf("@", index - 1);
+
+      if (lastAtIndex >= 0) {
+        // Replace from @ to current position with the mention
+        quill.deleteText(lastAtIndex, index - lastAtIndex);
+        quill.insertText(lastAtIndex, `@${member.name} `);
+        quill.setSelection(lastAtIndex + member.name.length + 2);
       } else {
-        quill.insertText(quill.getLength() - 1, `@${member.name} `);
+        // Fallback: insert at current position
+        quill.insertText(index, `@${member.name} `);
+        quill.setSelection(index + member.name.length + 2);
       }
     }
     setThreadShowMentionList(false);
@@ -2558,6 +2751,584 @@ export default function ChatPanel({ username = "Hasnain" }) {
     };
   }, [attachedFile]);
 
+  // Get all files from all chats
+  const getAllFiles = () => {
+    const allFiles = [];
+
+    Object.entries(messages || {}).forEach(([chatId, chatData]) => {
+      if (chatData?.files) {
+        chatData.files.forEach((file, index) => {
+          if (file) {
+            // Find the chat name
+            let chatName = "Unknown Chat";
+            if (chatId) {
+              const user = users.find((u) => u.id === parseInt(chatId));
+              const channel = channels.find((c) => c.id === chatId);
+              if (user) chatName = user.name;
+              else if (channel) chatName = channel.name;
+            }
+
+            // Find the message that contains this file
+            const messageWithFile = chatData.messages?.find((msg) =>
+              msg.attachments?.some(
+                (att) => att.name === file.name && att.size === file.size
+              )
+            );
+
+            allFiles.push({
+              ...file,
+              chatId,
+              chatName,
+              fileId: `${chatId}-${index}`,
+              uploadedBy: "You", // Since we're tracking files sent by current user
+              messageId: messageWithFile?.id,
+              messageTime: messageWithFile?.time,
+            });
+          }
+        });
+      }
+    });
+
+    // Sort by most recent first (assuming files are added in chronological order)
+    return allFiles.reverse();
+  };
+
+  // Classify files by time periods
+  const getFilesByTimePeriod = () => {
+    const allFiles = getAllFiles();
+    const now = new Date();
+
+    const classifyFile = (file) => {
+      if (!file.messageId) return "previous";
+
+      // Use message ID as a proxy for recency (higher ID = more recent)
+      const currentTime = Date.now();
+      const timeDiff = currentTime - file.messageId;
+
+      if (timeDiff < 24 * 60 * 60 * 1000) {
+        // Less than 24 hours
+        return "today";
+      } else if (timeDiff < 2 * 24 * 60 * 60 * 1000) {
+        // Less than 48 hours
+        return "yesterday";
+      } else if (timeDiff < 7 * 24 * 60 * 60 * 1000) {
+        // Less than 1 week
+        return "1week";
+      } else if (timeDiff < 30 * 24 * 60 * 60 * 1000) {
+        // Less than 1 month
+        return "1month";
+      } else {
+        return "previous";
+      }
+    };
+
+    const classified = {
+      today: [],
+      yesterday: [],
+      "1week": [],
+      "1month": [],
+      previous: [],
+    };
+
+    allFiles.forEach((file) => {
+      const period = classifyFile(file);
+      classified[period].push(file);
+    });
+
+    return classified;
+  };
+
+  // Get unread notification count
+  const getUnreadNotificationCount = () => {
+    return notifications.filter(
+      (notif) => notif.unread && !readNotificationIds.has(notif.id)
+    ).length;
+  };
+
+  // Get all messages with replies for threads page
+  const getAllMessagesWithReplies = () => {
+    const messagesWithReplies = [];
+
+    Object.entries(messages || {}).forEach(([chatId, chatData]) => {
+      const messagesArray = chatData?.messages || [];
+
+      messagesArray.forEach((message) => {
+        if (message.replies && message.replies.length > 0) {
+          // Find chat name
+          let chatName = "Unknown Chat";
+          if (chatId) {
+            const user = users.find((u) => u.id === parseInt(chatId));
+            const channel = channels.find((c) => c.id === chatId);
+            if (user) chatName = user.name;
+            else if (channel) chatName = channel.name;
+          }
+
+          messagesWithReplies.push({
+            ...message,
+            chatId: chatId, // Keep as string for channels like "g7"
+            chatName: chatName,
+            chatType: users.find((u) => u.id === parseInt(chatId))
+              ? "user"
+              : "channel",
+          });
+        }
+      });
+    });
+
+    // Sort by most recent first
+    return messagesWithReplies.sort((a, b) => b.time - a.time);
+  };
+
+  // Get unread replies count
+  const getUnreadRepliesCount = () => {
+    let unreadCount = 0;
+
+    Object.entries(messages || {}).forEach(([chatId, chatData]) => {
+      const messagesArray = chatData?.messages || [];
+
+      messagesArray.forEach((message) => {
+        if (message.replies && message.replies.length > 0) {
+          message.replies.forEach((reply) => {
+            if (reply.status === "unread") {
+              unreadCount++;
+            }
+          });
+        }
+      });
+    });
+
+    return unreadCount;
+  };
+
+  // Mark reply as read
+  const markReplyAsRead = (chatId, messageId, replyId) => {
+    setMessages((prev) => {
+      const updated = { ...prev };
+      // Handle both string and numeric chatIds
+      const chatKey = typeof chatId === "number" ? chatId.toString() : chatId;
+      const messagesArray = updated[chatKey]?.messages || [];
+
+      const newMessages = messagesArray.map((message) => {
+        if (message.id === messageId && message.replies) {
+          const updatedReplies = message.replies.map((reply) => {
+            if (reply.id === replyId && reply.status === "unread") {
+              return { ...reply, status: "read" };
+            }
+            return reply;
+          });
+          return { ...message, replies: updatedReplies };
+        }
+        return message;
+      });
+
+      updated[chatKey] = {
+        ...updated[chatKey],
+        messages: newMessages,
+      };
+
+      return updated;
+    });
+  };
+
+  // Mark notification as read
+  const markNotificationAsRead = (notificationId) => {
+    setReadNotificationIds((prev) => new Set([...prev, notificationId]));
+  };
+
+  // Helper functions for threads page reply management
+  const getThreadsPageReplyKey = (messageId) => `${messageId}`;
+
+  const getThreadsPageReplyText = (messageId) => {
+    const key = getThreadsPageReplyKey(messageId);
+    return threadsPageReplyTexts[key] || "";
+  };
+
+  const setThreadsPageReplyText = (messageId, text) => {
+    const key = getThreadsPageReplyKey(messageId);
+    setThreadsPageReplyTexts((prev) => ({ ...prev, [key]: text }));
+  };
+
+  const toggleThreadsPageEmojiPicker = (messageId) => {
+    const key = getThreadsPageReplyKey(messageId);
+    setThreadsPageShowEmojiPickers((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+
+  const handleThreadsPageEmojiSelect = (messageId, emojiData) => {
+    const key = getThreadsPageReplyKey(messageId);
+    const currentText = getThreadsPageReplyText(messageId);
+    setThreadsPageReplyTexts((prev) => ({
+      ...prev,
+      [key]: currentText + emojiData.emoji,
+    }));
+    setThreadsPageShowEmojiPickers((prev) => ({
+      ...prev,
+      [key]: false,
+    }));
+  };
+
+  // Helper function to get group members for a specific chat
+  const getGroupMembersForChat = (chatId) => {
+    // Find the channel/group by chatId
+    const channel = channels.find((c) => c.id === chatId);
+    if (!channel) return [];
+
+    // Resolve each member id to real user object (use currentUser for "me")
+    const resolved = (channel.members || [])
+      .map((m) => {
+        if (!m) return null;
+        if (typeof m === "object") return m; // already a user object
+        if (m === "me") return currentUser; // map "me" to currentUser object
+        return users.find((u) => u.id === m) || null; // find in users array
+      })
+      .filter(Boolean);
+
+    return resolved;
+  };
+
+  const handleThreadsPageSelectMention = (member, messageId) => {
+    const key = getThreadsPageReplyKey(messageId);
+
+    // Get the ReactQuill editor instance for this specific message
+    const quillEditor = threadsPageQuillRefs.current[key];
+    if (quillEditor) {
+      const quill = quillEditor.getEditor();
+      const range = quill.getSelection();
+      const index = range ? range.index : quill.getLength();
+
+      // Find the last @ and replace it with the mention
+      const text = quill.getText();
+      const lastAtIndex = text.lastIndexOf("@", index - 1);
+
+      if (lastAtIndex >= 0) {
+        // Replace from @ to current position with the mention
+        quill.deleteText(lastAtIndex, index - lastAtIndex);
+        quill.insertText(lastAtIndex, `@${member.name} `);
+        quill.setSelection(lastAtIndex + member.name.length + 2);
+      } else {
+        // Fallback: insert at current position
+        quill.insertText(index, `@${member.name} `);
+        quill.setSelection(index + member.name.length + 2);
+      }
+    } else {
+      // Fallback to string manipulation if ReactQuill is not available
+      const currentText = getThreadsPageReplyText(messageId);
+      const lastAtIndex = currentText.lastIndexOf("@");
+      if (lastAtIndex >= 0) {
+        const newText =
+          currentText.substring(0, lastAtIndex) + `@${member.name} `;
+        setThreadsPageReplyText(messageId, newText);
+      } else {
+        setThreadsPageReplyText(messageId, currentText + `@${member.name} `);
+      }
+    }
+
+    setThreadsPageShowMentionLists((prev) => ({
+      ...prev,
+      [key]: false,
+    }));
+    setThreadsPageMentionSearches((prev) => ({
+      ...prev,
+      [key]: "",
+    }));
+  };
+
+  const handleThreadsPageSubmitReply = (message) => {
+    const replyText = getThreadsPageReplyText(message.id);
+    if (
+      replyText.trim() ||
+      threadsPageAttachedFiles[getThreadsPageReplyKey(message.id)] ||
+      threadsPageAudioBlobs[getThreadsPageReplyKey(message.id)] ||
+      threadsPageVideoBlobs[getThreadsPageReplyKey(message.id)]
+    ) {
+      const attachments = [];
+
+      // Add file attachment if exists
+      if (threadsPageAttachedFiles[getThreadsPageReplyKey(message.id)]) {
+        attachments.push(
+          threadsPageAttachedFiles[getThreadsPageReplyKey(message.id)]
+        );
+      }
+
+      // Add audio attachment if exists
+      if (threadsPageAudioBlobs[getThreadsPageReplyKey(message.id)]) {
+        attachments.push({
+          name: "voice-message.webm",
+          type: "audio/webm",
+          url: URL.createObjectURL(
+            threadsPageAudioBlobs[getThreadsPageReplyKey(message.id)]
+          ),
+          duration:
+            threadsPageRecordingDuration[getThreadsPageReplyKey(message.id)] ||
+            0,
+        });
+      }
+
+      // Add video attachment if exists
+      if (threadsPageVideoBlobs[getThreadsPageReplyKey(message.id)]) {
+        attachments.push({
+          name: "video-message.webm",
+          type: "video/webm",
+          url: URL.createObjectURL(
+            threadsPageVideoBlobs[getThreadsPageReplyKey(message.id)]
+          ),
+        });
+      }
+
+      handleSubmitReply(message.chatId, message.id, replyText, attachments);
+
+      // Clear all reply data
+      const key = getThreadsPageReplyKey(message.id);
+      setThreadsPageReplyText(message.id, "");
+      setThreadsPageAttachedFiles((prev) => {
+        const updated = { ...prev };
+        delete updated[key];
+        return updated;
+      });
+      setThreadsPageAttachedPreviewUrls((prev) => {
+        const updated = { ...prev };
+        delete updated[key];
+        return updated;
+      });
+      setThreadsPageAudioBlobs((prev) => {
+        const updated = { ...prev };
+        delete updated[key];
+        return updated;
+      });
+      setThreadsPageVideoBlobs((prev) => {
+        const updated = { ...prev };
+        delete updated[key];
+        return updated;
+      });
+      setThreadsPageRecordingDuration((prev) => {
+        const updated = { ...prev };
+        delete updated[key];
+        return updated;
+      });
+      setThreadsPageIsPaused((prev) => {
+        const updated = { ...prev };
+        delete updated[key];
+        return updated;
+      });
+    }
+  };
+
+  // Voice and video recording handlers for threads page
+  const handleThreadsPageStartAudio = (messageId) => {
+    const key = getThreadsPageReplyKey(messageId);
+    setThreadsPageIsRecordingAudio((prev) => ({ ...prev, [key]: true }));
+    setThreadsPageIsPaused((prev) => ({ ...prev, [key]: false }));
+    setThreadsPageRecordingDuration((prev) => ({ ...prev, [key]: 0 }));
+
+    // Start recording logic (similar to main thread recording)
+    navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
+      const mediaRecorder = new MediaRecorder(stream);
+      const audioChunks = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        audioChunks.push(event.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
+        setThreadsPageAudioBlobs((prev) => ({ ...prev, [key]: audioBlob }));
+        stream.getTracks().forEach((track) => track.stop());
+      };
+
+      mediaRecorder.start();
+
+      // Store media recorder reference for stopping
+      window[`threadsPageMediaRecorder_${key}`] = mediaRecorder;
+
+      // Start duration timer
+      const interval = setInterval(() => {
+        setThreadsPageRecordingDuration((prev) => ({
+          ...prev,
+          [key]: (prev[key] || 0) + 1,
+        }));
+      }, 1000);
+
+      window[`threadsPageRecordingInterval_${key}`] = interval;
+    });
+  };
+
+  const handleThreadsPageStopAudio = (messageId) => {
+    const key = getThreadsPageReplyKey(messageId);
+    setThreadsPageIsRecordingAudio((prev) => ({ ...prev, [key]: false }));
+
+    const mediaRecorder = window[`threadsPageMediaRecorder_${key}`];
+    const interval = window[`threadsPageRecordingInterval_${key}`];
+
+    if (mediaRecorder && mediaRecorder.state === "recording") {
+      mediaRecorder.stop();
+    }
+
+    if (interval) {
+      clearInterval(interval);
+      delete window[`threadsPageRecordingInterval_${key}`];
+    }
+  };
+
+  const handleThreadsPagePauseResumeAudio = (messageId) => {
+    const key = getThreadsPageReplyKey(messageId);
+    setThreadsPageIsPaused((prev) => ({ ...prev, [key]: !prev[key] }));
+
+    const mediaRecorder = window[`threadsPageMediaRecorder_${key}`];
+    if (mediaRecorder) {
+      if (mediaRecorder.state === "recording") {
+        mediaRecorder.pause();
+      } else if (mediaRecorder.state === "paused") {
+        mediaRecorder.resume();
+      }
+    }
+  };
+
+  const handleThreadsPageStartVideo = (messageId) => {
+    const key = getThreadsPageReplyKey(messageId);
+    setThreadsPageIsRecordingVideo((prev) => ({ ...prev, [key]: true }));
+
+    // Start video recording logic
+    navigator.mediaDevices
+      .getUserMedia({ video: true, audio: true })
+      .then((stream) => {
+        const mediaRecorder = new MediaRecorder(stream);
+        const videoChunks = [];
+
+        mediaRecorder.ondataavailable = (event) => {
+          videoChunks.push(event.data);
+        };
+
+        mediaRecorder.onstop = () => {
+          const videoBlob = new Blob(videoChunks, { type: "video/webm" });
+          setThreadsPageVideoBlobs((prev) => ({ ...prev, [key]: videoBlob }));
+          stream.getTracks().forEach((track) => track.stop());
+        };
+
+        mediaRecorder.start();
+
+        // Store media recorder reference for stopping
+        window[`threadsPageVideoRecorder_${key}`] = mediaRecorder;
+      });
+  };
+
+  const handleThreadsPageStopVideo = (messageId) => {
+    const key = getThreadsPageReplyKey(messageId);
+    setThreadsPageIsRecordingVideo((prev) => ({ ...prev, [key]: false }));
+
+    const mediaRecorder = window[`threadsPageVideoRecorder_${key}`];
+    if (mediaRecorder && mediaRecorder.state === "recording") {
+      mediaRecorder.stop();
+    }
+  };
+
+  // Handle notification click
+  const handleNotificationClick = (notification) => {
+    // Mark as read
+    markNotificationAsRead(notification.id);
+
+    // Navigate to the appropriate chat and message
+    if (notification.type === "message" || notification.type === "mention") {
+      const user = users.find((u) => u.id === notification.chatId);
+      const channel = channels.find((c) => c.id === notification.chatId);
+
+      if (user) {
+        setActiveUser(user);
+        navigate(`/chat?user=${encodeURIComponent(user.name)}`, {
+          replace: false,
+        });
+      } else if (channel) {
+        setActiveUser({ ...channel, isGroup: true });
+        navigate(`/chat?group=${encodeURIComponent(channel.name)}`, {
+          replace: false,
+        });
+      }
+    } else if (
+      notification.type === "reaction" ||
+      notification.type === "reply"
+    ) {
+      const user = users.find((u) => u.id === notification.chatId);
+      const channel = channels.find((c) => c.id === notification.chatId);
+
+      if (user) {
+        setActiveUser(user);
+        navigate(`/chat?user=${encodeURIComponent(user.name)}`, {
+          replace: false,
+        });
+      } else if (channel) {
+        setActiveUser({ ...channel, isGroup: true });
+        navigate(`/chat?group=${encodeURIComponent(channel.name)}`, {
+          replace: false,
+        });
+      }
+    }
+
+    // Highlight the specific message
+    if (notification.messageId) {
+      setHighlightedMessageId(notification.messageId);
+      setTimeout(() => {
+        setHighlightedMessageId(null);
+      }, 3000);
+    }
+
+    // Close the activity panel and threads page
+    setActivePanel("home");
+    setShowThreadsPage(false);
+    if (window.innerWidth < 768) setSidebarOpen(false);
+  };
+
+  // Update browser tab title and favicon based on unread notifications
+  useEffect(() => {
+    const unreadCount = getUnreadNotificationCount();
+    const originalTitle = "CFR Dashboard"; // Use a fixed original title
+
+    if (unreadCount > 0) {
+      document.title = `(${unreadCount}) ${originalTitle}`;
+    } else {
+      document.title = originalTitle;
+    }
+
+    return () => {
+      document.title = originalTitle;
+    };
+  }, [notifications, readNotificationIds]);
+
+  // File navigation - navigate to chat where file was sent
+  const handleFileClick = (file) => {
+    if (!file?.chatId) return;
+
+    const user = users.find((u) => u.id === parseInt(file.chatId));
+    const channel = channels.find((c) => c.id === file.chatId);
+
+    if (user) {
+      setActiveUser(user);
+      navigate(`/chat?user=${encodeURIComponent(user.name)}`, {
+        replace: false,
+      });
+    } else if (channel) {
+      setActiveUser({ ...channel, isGroup: true });
+      navigate(`/chat?group=${encodeURIComponent(channel.name)}`, {
+        replace: false,
+      });
+    }
+
+    // Highlight the specific message containing this file
+    if (file.messageId) {
+      setHighlightedFileId(file.messageId);
+
+      // Clear highlight after 3 seconds
+      setTimeout(() => {
+        setHighlightedFileId(null);
+      }, 3000);
+    }
+
+    // Close the file panel and threads page
+    setShowFilePanel(false);
+    setShowThreadsPage(false);
+    if (window.innerWidth < 768) setSidebarOpen(false);
+  };
+
   //Activity navigation
   const handleActivityClick = (msg) => {
     if (!msg?.name) return;
@@ -2622,23 +3393,156 @@ export default function ChatPanel({ username = "Hasnain" }) {
     if (window.innerWidth < 768) setSidebarOpen(false);
   };
 
+  // ---------- Handle keyboard navigation in mention list ----------
+  const handleMentionKeyDown = (e) => {
+    if (!showMentionList) return;
+
+    const filteredMembers = [
+      ...(mentionSearch === "" || "here".includes(mentionSearch.toLowerCase())
+        ? [{ name: "here", id: "here", avatar: "" }]
+        : []),
+      ...groupMembers.filter((m) =>
+        m.name.toLowerCase().includes(mentionSearch.toLowerCase())
+      ),
+    ];
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setSelectedMentionIndex((prev) =>
+        prev < filteredMembers.length - 1 ? prev + 1 : 0
+      );
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setSelectedMentionIndex((prev) =>
+        prev > 0 ? prev - 1 : filteredMembers.length - 1
+      );
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (filteredMembers[selectedMentionIndex]) {
+        handleSelectMention(filteredMembers[selectedMentionIndex]);
+      }
+    } else if (e.key === "Escape") {
+      setShowMentionList(false);
+    }
+  };
+
+  // ---------- Handle keyboard navigation in threads page mention list ----------
+  const handleThreadsPageMentionKeyDown = (e, messageId, chatId) => {
+    const key = getThreadsPageReplyKey(messageId);
+    const showMentionList = threadsPageShowMentionLists[key];
+
+    if (!showMentionList) return;
+
+    const searchValue = threadsPageMentionSearches[key] || "";
+    const chatGroupMembers = getGroupMembersForChat(chatId);
+    const filteredMembers = [
+      ...(searchValue === "" || "here".includes(searchValue.toLowerCase())
+        ? [{ name: "here", id: "here", avatar: "" }]
+        : []),
+      ...chatGroupMembers.filter((m) =>
+        m.name.toLowerCase().includes(searchValue.toLowerCase())
+      ),
+    ];
+
+    const currentIndex = threadsPageSelectedMentionIndexes[key] || 0;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setThreadsPageSelectedMentionIndexes((prev) => ({
+        ...prev,
+        [key]: currentIndex < filteredMembers.length - 1 ? currentIndex + 1 : 0,
+      }));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setThreadsPageSelectedMentionIndexes((prev) => ({
+        ...prev,
+        [key]: currentIndex > 0 ? currentIndex - 1 : filteredMembers.length - 1,
+      }));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (filteredMembers[currentIndex]) {
+        handleThreadsPageSelectMention(
+          filteredMembers[currentIndex],
+          messageId
+        );
+      }
+    } else if (e.key === "Escape") {
+      setThreadsPageShowMentionLists((prev) => ({
+        ...prev,
+        [key]: false,
+      }));
+    }
+  };
+
+  // ---------- Handle keyboard navigation in thread mention list ----------
+  const handleThreadMentionKeyDown = (e) => {
+    if (!threadShowMentionList) return;
+
+    const filteredMembers = [
+      ...(threadMentionSearch === "" ||
+      "here".includes(threadMentionSearch.toLowerCase())
+        ? [{ name: "here", id: "here", avatar: "" }]
+        : []),
+      ...groupMembers.filter((m) =>
+        m.name.toLowerCase().includes(threadMentionSearch.toLowerCase())
+      ),
+    ];
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setThreadSelectedMentionIndex((prev) =>
+        prev < filteredMembers.length - 1 ? prev + 1 : 0
+      );
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setThreadSelectedMentionIndex((prev) =>
+        prev > 0 ? prev - 1 : filteredMembers.length - 1
+      );
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (filteredMembers[threadSelectedMentionIndex]) {
+        handleThreadSelectMention(filteredMembers[threadSelectedMentionIndex]);
+      }
+    } else if (e.key === "Escape") {
+      setThreadShowMentionList(false);
+    }
+  };
+
   // ---------- Insert mention into editor and close dropdown ----------
   const handleSelectMention = (member) => {
     const quillComponent = quillRef.current;
     const quill = quillComponent?.getEditor && quillComponent.getEditor();
 
+    // Close the mention list first to prevent auto-open conflicts
+    setShowMentionList(false);
+
     if (!quill) {
-      setMessage((prev) => (prev || "") + `@${member.name} `);
+      // For simple text input, replace the @ with the mention
+      setMessage((prev) => {
+        const lastAtIndex = prev.lastIndexOf("@");
+        if (lastAtIndex >= 0) {
+          return prev.substring(0, lastAtIndex) + `@${member.name} `;
+        }
+        return (prev || "") + `@${member.name} `;
+      });
     } else {
       const range = quill.getSelection(true);
       const index = range ? range.index : quill.getLength();
 
-      const mentionHtml = `<span class="mention" data-id="${member.id}">@${member.name}</span>&nbsp;`;
+      // Find the last @ and replace it with the mention
+      const text = quill.getText();
+      const lastAtIndex = text.lastIndexOf("@", index - 1);
 
-      quill.clipboard.dangerouslyPasteHTML(index, mentionHtml);
-
-      const moveTo = index + member.name.length + 2;
-      quill.setSelection(moveTo);
+      if (lastAtIndex >= 0) {
+        // Replace from @ to current position with the mention
+        quill.deleteText(lastAtIndex, index - lastAtIndex);
+        quill.insertText(lastAtIndex, `@${member.name} `);
+        quill.setSelection(lastAtIndex + member.name.length + 2);
+      } else {
+        // Fallback: insert at current position
+        quill.insertText(index, `@${member.name} `);
+        quill.setSelection(index + member.name.length + 2);
+      }
 
       setTimeout(() => {
         try {
@@ -2676,6 +3580,29 @@ export default function ChatPanel({ username = "Hasnain" }) {
     };
   }, [showMentionList]);
 
+  // Main mention dropdown click outside handler
+  useEffect(() => {
+    if (!showMentionList) return;
+
+    function onDocClick(e) {
+      const insideDropdown = mentionListRef.current?.contains?.(e.target);
+      const clickedButton = mentionButtonRef.current?.contains?.(e.target);
+      if (!insideDropdown && !clickedButton) setShowMentionList(false);
+    }
+
+    function onKeyDown(e) {
+      handleMentionKeyDown(e);
+    }
+
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [showMentionList, selectedMentionIndex, mentionSearch]);
+
   // Thread mention dropdown click outside handler
   useEffect(() => {
     if (!threadShowMentionList) return;
@@ -2689,7 +3616,7 @@ export default function ChatPanel({ username = "Hasnain" }) {
     }
 
     function onKeyDown(e) {
-      if (e.key === "Escape") setThreadShowMentionList(false);
+      handleThreadMentionKeyDown(e);
     }
 
     document.addEventListener("mousedown", onDocClick);
@@ -2698,7 +3625,44 @@ export default function ChatPanel({ username = "Hasnain" }) {
       document.removeEventListener("mousedown", onDocClick);
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [threadShowMentionList]);
+  }, [threadShowMentionList, threadSelectedMentionIndex, threadMentionSearch]);
+
+  // Threads page mention dropdown keyboard handler
+  useEffect(() => {
+    // Check if any threads page mention list is open
+    const anyMentionListOpen = Object.values(threadsPageShowMentionLists).some(
+      (open) => open
+    );
+
+    if (!anyMentionListOpen) return;
+
+    function onKeyDown(e) {
+      // Find which mention list is open and handle the keydown
+      Object.entries(threadsPageShowMentionLists).forEach(([key, isOpen]) => {
+        if (isOpen) {
+          // Extract messageId from key (key is just messageId)
+          const messageId = key;
+          // Find the chatId for this message
+          const messagesWithReplies = getAllMessagesWithReplies();
+          const message = messagesWithReplies.find(
+            (m) => m.id.toString() === messageId
+          );
+          if (message) {
+            handleThreadsPageMentionKeyDown(e, messageId, message.chatId);
+          }
+        }
+      });
+    }
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [
+    threadsPageShowMentionLists,
+    threadsPageSelectedMentionIndexes,
+    threadsPageMentionSearches,
+  ]);
 
   // Thread reply menu click outside handler
   useEffect(() => {
@@ -3015,114 +3979,327 @@ export default function ChatPanel({ username = "Hasnain" }) {
           <div
             className="flex flex-col items-center relative"
             ref={activityRef}
+            onMouseEnter={() => {
+              if (activityPanelTimeoutRef.current) {
+                clearTimeout(activityPanelTimeoutRef.current);
+                activityPanelTimeoutRef.current = null;
+              }
+              setActivePanel("activity");
+            }}
+            onMouseLeave={() => {
+              activityPanelTimeoutRef.current = setTimeout(() => {
+                setActivePanel("home");
+              }, 200);
+            }}
           >
             <button
-              className={`p-2 rounded-md ${
+              className={`p-2 rounded-md relative ${
                 activePanel === "activity"
                   ? "bg-[#724875] text-white"
                   : "hover:bg-[#72487540] text-gray-300"
               }`}
-              onClick={() =>
-                setActivePanel(activePanel === "activity" ? "home" : "activity")
-              }
             >
               <Icon icon="mdi:bell-outline" className="w-5 h-5" />
+              {getUnreadNotificationCount() > 0 && (
+                <span
+                  className="absolute -top-1 -right-1 text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center"
+                  style={{ backgroundColor: "#EBBDF9", color: "#3F0E40" }}
+                >
+                  {getUnreadNotificationCount() > 9
+                    ? "9+"
+                    : getUnreadNotificationCount()}
+                </span>
+              )}
             </button>
             <span className="text-[10px] mt-1 text-white">Activity</span>
 
             {/* Activity Panel */}
             {activePanel === "activity" && (
-              <div className="absolute left-14 top-0 w-80 h-96 bg-white shadow-lg rounded-lg border border-gray-300 overflow-hidden z-[9999] flex flex-col">
+              <div
+                className="absolute left-14 top-0 w-80 h-96 bg-white shadow-lg rounded-lg border border-gray-300 overflow-hidden z-[9999] flex flex-col"
+                onMouseEnter={() => {
+                  if (activityPanelTimeoutRef.current) {
+                    clearTimeout(activityPanelTimeoutRef.current);
+                    activityPanelTimeoutRef.current = null;
+                  }
+                }}
+                onMouseLeave={() => {
+                  activityPanelTimeoutRef.current = setTimeout(() => {
+                    setActivePanel("home");
+                  }, 200);
+                }}
+              >
                 {/* Header */}
                 <div className="px-4 py-2 border-b border-gray-200 flex-shrink-0">
                   <h2 className="font-bold text-black text-[14px]">Activity</h2>
                 </div>
 
                 {/* Content */}
-                <div className="divide-y divide-gray-200 overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-[#8E8E9C2E] scrollbar-track-transparent">
-                  {unreadMessages.length > 0 ? (
-                    unreadMessages.map((msg) => (
-                      <div
-                        key={`${msg.chatId}-${msg.id}`}
-                        className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer"
-                        onClick={() => handleActivityClick(msg)}
-                      >
-                        {/* Avatar (Square) */}
-                        {(() => {
-                          const userData = users.find(
-                            (u) => u.name === msg.name
-                          );
-                          return userData?.avatar ? (
-                            <img
-                              src={userData.avatar}
-                              alt={msg.name}
-                              className="w-10 h-10 rounded-md object-cover"
-                            />
-                          ) : (
-                            <div className="w-10 h-10 bg-gray-400 rounded-md flex items-center justify-center text-white font-bold">
-                              {msg.name?.charAt(0).toUpperCase()}
-                            </div>
-                          );
-                        })()}
+                <div className="overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-[#8E8E9C2E] scrollbar-track-transparent">
+                  {notifications.length > 0 ? (
+                    notifications.map((notification) => {
+                      const isRead =
+                        readNotificationIds.has(notification.id) ||
+                        !notification.unread;
 
-                        {/* Details */}
-                        <div className="flex-1">
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-black font-semibold">
-                              {(() => {
-                                // Check if this is a channel/group message
-                                const channelData = channels.find(
-                                  (ch) => ch.id === msg.chatId
-                                );
-                                if (channelData) {
-                                  return `# ${channelData.name}`;
-                                }
-                                return msg.name;
-                              })()}
-                            </span>
-                            <span className="text-[11px] text-gray-400 whitespace-nowrap">
-                              {msg.time}
-                            </span>
-                          </div>
-                          {(() => {
-                            // Check if this is a channel/group message
-                            const channelData = channels.find(
-                              (ch) => ch.id === msg.chatId
-                            );
-                            if (channelData) {
-                              return (
-                                <>
-                                  <p className="text-xs text-gray-700 font-medium mt-1">
-                                    {msg.name}
-                                  </p>
-                                  <p className="text-xs text-gray-600 mt-1">
-                                    {msg.text}
-                                  </p>
-                                </>
-                              );
-                            }
-                            return (
-                              <p className="text-xs text-gray-600 mt-1">
-                                {msg.text}
+                      // Format date for display
+                      const formatDate = (timeStr) => {
+                        if (timeStr === "Yesterday") return "Yesterday";
+                        if (timeStr.includes("AM") || timeStr.includes("PM")) {
+                          // For today's messages, show just time
+                          return timeStr;
+                        }
+                        // For older messages, you could parse and format differently
+                        return timeStr;
+                      };
+
+                      return (
+                        <div
+                          key={notification.id}
+                          className="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100"
+                          onClick={() => handleNotificationClick(notification)}
+                        >
+                          {/* Main content row */}
+                          <div className="flex justify-between items-start mb-2">
+                            {/* Left side - Notification content */}
+                            <div className="flex-1 min-w-0">
+                              {/* User name, avatar and action in same row */}
+                              <div className="flex items-center gap-2 mb-1">
+                                {/* User avatar */}
+                                <div className="w-6 h-6 bg-gray-300 rounded-full flex items-center justify-center flex-shrink-0">
+                                  <span className="text-xs text-gray-600 font-semibold">
+                                    {notification.chatName.charAt(0)}
+                                  </span>
+                                </div>
+
+                                <span
+                                  className={`text-sm ${
+                                    isRead
+                                      ? "text-gray-600"
+                                      : "text-black font-semibold"
+                                  }`}
+                                >
+                                  {notification.type === "reaction" && (
+                                    <>
+                                      {notification.chatName} reacted to your
+                                      messa...
+                                    </>
+                                  )}
+                                  {notification.type === "reply" && (
+                                    <>
+                                      {notification.chatName} replied to your
+                                      message
+                                    </>
+                                  )}
+                                  {notification.type === "message" && (
+                                    <>{notification.chatName}</>
+                                  )}
+                                  {notification.type === "mention" && (
+                                    <>{notification.chatName} mentioned you</>
+                                  )}
+                                </span>
+                              </div>
+
+                              {/* Message content */}
+                              <p
+                                className={`text-sm ${
+                                  isRead ? "text-gray-500" : "text-gray-700"
+                                }`}
+                              >
+                                {notification.message}
                               </p>
-                            );
-                          })()}
+
+                              {/* Thread indicator (for reply notifications) */}
+                              {notification.type === "reply" && (
+                                <div className="flex items-center gap-2 mt-2">
+                                  <Icon
+                                    icon="mdi:message-outline"
+                                    className="w-4 h-4 text-gray-500"
+                                  />
+                                  <span className="text-xs text-gray-500">
+                                    replied to:{" "}
+                                    {notification.message.substring(0, 20)}...
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Right side - Date */}
+                            <div className="flex-shrink-0 ml-4">
+                              <span className="text-xs text-gray-400">
+                                {formatDate(notification.time)}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Unread indicator */}
+                          {!isRead && (
+                            <div
+                              className="absolute right-2 top-1/2 transform -translate-y-1/2 w-2 h-2 rounded-full"
+                              style={{ backgroundColor: "#EBBDF9" }}
+                            ></div>
+                          )}
                         </div>
-                      </div>
-                    ))
+                      );
+                    })
                   ) : (
                     <div className="flex flex-col items-center justify-center h-full min-h-[300px] px-4">
-                      {/* Green checkmark icon */}
+                      {/* Bell icon */}
                       <Icon
-                        icon="lsicon:check-correct-filled"
-                        className="w-10 h-10 text-green-500 rounded-md p-1 mb-1"
+                        icon="mdi:bell-outline"
+                        className="w-10 h-10 text-gray-400 mb-3"
                       />
                       {/* Text */}
-                      <p className="text-lg font-medium text-gray-700 dark:text-gray-300 text-center">
-                        You're all caught up
+                      <p className="text-lg font-medium text-gray-700 text-center">
+                        No notifications yet
                       </p>
                     </div>
                   )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Files */}
+          <div
+            className="flex flex-col items-center relative"
+            ref={fileRef}
+            onMouseEnter={() => {
+              if (filePanelTimeoutRef.current) {
+                clearTimeout(filePanelTimeoutRef.current);
+                filePanelTimeoutRef.current = null;
+              }
+              setShowFilePanel(true);
+            }}
+            onMouseLeave={() => {
+              filePanelTimeoutRef.current = setTimeout(() => {
+                setShowFilePanel(false);
+              }, 200);
+            }}
+          >
+            <button
+              className={`p-2 rounded-md ${
+                showFilePanel
+                  ? "bg-[#724875] text-white"
+                  : "hover:bg-[#72487540] text-gray-300"
+              }`}
+            >
+              <Icon icon="system-uicons:files-stack" className="w-5 h-5" />
+            </button>
+            <span className="text-[10px] mt-1 text-white">Files</span>
+
+            {/* File Panel */}
+            {showFilePanel && (
+              <div
+                className="absolute left-14 top-0 w-80 h-96 bg-white shadow-lg rounded-lg border border-gray-300 overflow-hidden z-[9999] flex flex-col"
+                onMouseEnter={() => {
+                  if (filePanelTimeoutRef.current) {
+                    clearTimeout(filePanelTimeoutRef.current);
+                    filePanelTimeoutRef.current = null;
+                  }
+                }}
+                onMouseLeave={() => {
+                  filePanelTimeoutRef.current = setTimeout(() => {
+                    setShowFilePanel(false);
+                  }, 200);
+                }}
+              >
+                {/* Header */}
+                <div className="px-4 py-2 border-b border-gray-200 flex-shrink-0">
+                  <h2 className="font-bold text-black text-[14px]">Files</h2>
+                </div>
+
+                {/* Content */}
+                <div className="overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-[#8E8E9C2E] scrollbar-track-transparent">
+                  {(() => {
+                    const filesByPeriod = getFilesByTimePeriod();
+                    const totalFiles = Object.values(filesByPeriod).reduce(
+                      (sum, files) => sum + files.length,
+                      0
+                    );
+
+                    if (totalFiles === 0) {
+                      return (
+                        <div className="flex flex-col items-center justify-center h-full text-center px-4">
+                          <Icon
+                            icon="system-uicons:files-stack"
+                            className="w-12 h-12 text-gray-400 mb-3"
+                          />
+                          <p className="text-lg font-medium text-gray-700 text-center">
+                            No files shared yet
+                          </p>
+                        </div>
+                      );
+                    }
+
+                    const timePeriods = [
+                      { key: "today", label: "Today" },
+                      { key: "yesterday", label: "Yesterday" },
+                      { key: "1week", label: "1 Week" },
+                      { key: "1month", label: "1 Month" },
+                      { key: "previous", label: "Previous" },
+                    ];
+
+                    return timePeriods
+                      .map((period) => {
+                        const files = filesByPeriod[period.key];
+                        if (files.length === 0) return null;
+
+                        return (
+                          <div key={period.key}>
+                            {/* Time Period Header */}
+                            <div className="px-4 py-2 bg-gray-50 border-b border-gray-200 sticky top-0">
+                              <h3 className="text-xs font-semibold text-gray-600 uppercase tracking-wide text-center">
+                                {period.label}
+                              </h3>
+                            </div>
+
+                            {/* Files in this period */}
+                            {files.map((file) => (
+                              <div
+                                key={file.fileId}
+                                className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100"
+                                onClick={() => handleFileClick(file)}
+                              >
+                                {/* File Icon */}
+                                <div className="flex-shrink-0 w-10 h-10 bg-gray-100 rounded-md flex items-center justify-center">
+                                  <Icon
+                                    icon={getFileIcon(file)}
+                                    width="20"
+                                    className="text-gray-600"
+                                  />
+                                </div>
+
+                                {/* Details */}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex justify-between items-start">
+                                    <span className="text-sm text-black font-semibold truncate">
+                                      {file.name}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-gray-600 mt-1">
+                                    {file.chatName}
+                                  </p>
+                                  <div className="flex justify-between items-center mt-1">
+                                    <p className="text-xs text-gray-500">
+                                      {file.size
+                                        ? Math.round(file.size / 1024) + " KB"
+                                        : "Unknown size"}
+                                    </p>
+                                    {file.messageTime && (
+                                      <p className="text-xs text-gray-400">
+                                        {file.messageTime}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })
+                      .filter(Boolean);
+                  })()}
                 </div>
               </div>
             )}
@@ -3223,7 +4400,7 @@ export default function ChatPanel({ username = "Hasnain" }) {
           {/* Avatar */}
           <div className="relative group">
             <img
-              src="/avatar4.png"
+              src="/avatar1.png"
               alt="Profile"
               className="w-8 h-8 rounded-md border border-gray-600 cursor-pointer"
               onClick={() => setStatusModalOpen(true)}
@@ -3231,7 +4408,7 @@ export default function ChatPanel({ username = "Hasnain" }) {
 
             {/* Status indicator */}
             <span
-              className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#350D36] flex items-center justify-center text-[8px]`}
+              className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-4 border-[#350D36] flex items-center justify-center text-[8px]`}
               style={{ backgroundColor: userStatus.color || "#22c55e" }}
             >
               {userStatus.emoji ? (
@@ -3595,8 +4772,47 @@ export default function ChatPanel({ username = "Hasnain" }) {
         {/* Separator */}
         <div className="border-t border-[#350D36] mt-2 mb-2"></div>
 
-        {/* Sidebar list (Channels / Favorites / Direct Messages) */}
-        <div className="flex-1 overflow-y-auto pr-2 mb-1 scrollbar-thin scrollbar-thumb-[#8E8E9C2E] scrollbar-track-transparent">
+        {/* Sidebar list (Threads / Channels / Favorites / Direct Messages) */}
+        <div className="flex-1 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-[#8E8E9C2E] scrollbar-track-transparent">
+          {/* Threads Section */}
+          <div
+            className={`group flex items-center justify-between px-4 py-2 text-[14px] cursor-pointer hover:bg-[#7476F11A] hover:text-white rounded-md ${
+              showThreadsPage ? "bg-[#F9EDFF] dark:bg-[#F9EDFF]" : ""
+            }`}
+            onClick={handleThreadsClick}
+          >
+            <div className="flex items-center gap-2">
+              <Icon
+                icon="icon-park-outline:message"
+                className={`w-4 h-4 ${
+                  showThreadsPage
+                    ? "text-[#3F0E40] dark:text-[#3F0E40] group-hover:text-white"
+                    : "text-white dark:text-white"
+                }`}
+              />
+              <span
+                className={`truncate ${
+                  showThreadsPage
+                    ? "text-[#3F0E40] dark:text-[#3F0E40] group-hover:text-white"
+                    : "text-white dark:text-white"
+                }`}
+              >
+                Threads
+              </span>
+            </div>
+            {getUnreadRepliesCount() > 0 && (
+              <div
+                className="flex items-center justify-center w-5 h-5 rounded-full text-xs font-semibold"
+                style={{ backgroundColor: "#EBBDF9", color: "#3F0E40" }}
+              >
+                {getUnreadRepliesCount()}
+              </div>
+            )}
+          </div>
+
+          {/* Separator */}
+          <div className="border-t border-[#EBBDF940] my-2"></div>
+
           {/* Channels Section */}
           {channels.length > 0 && (
             <>
@@ -3619,12 +4835,13 @@ export default function ChatPanel({ username = "Hasnain" }) {
                   <div
                     key={group.id}
                     className={`group flex items-center gap-2 px-4 py-1 mb-1 text-[14px] cursor-pointer hover:bg-[#7476F11A] hover:text-white rounded-md ${
-                      activeUser?.id === group.id
+                      activeUser?.id === group.id && !showThreadsPage
                         ? "bg-[#F9EDFF] dark:bg-[#F9EDFF]"
                         : ""
                     }`}
                     onClick={() => {
                       setActiveUser({ ...group, isGroup: true });
+                      setShowThreadsPage(false);
                       navigate(
                         `/chat?group=${encodeURIComponent(group.name)}`,
                         { replace: false }
@@ -3634,7 +4851,7 @@ export default function ChatPanel({ username = "Hasnain" }) {
                   >
                     <span
                       className={`font-medium text-lg ${
-                        activeUser?.id === group.id
+                        activeUser?.id === group.id && !showThreadsPage
                           ? "text-[#3F0E40] dark:text-[#3F0E40] group-hover:text-white"
                           : "text-white dark:text-white"
                       }`}
@@ -3643,7 +4860,7 @@ export default function ChatPanel({ username = "Hasnain" }) {
                     </span>
                     <span
                       className={`truncate ${
-                        activeUser?.id === group.id
+                        activeUser?.id === group.id && !showThreadsPage
                           ? "text-[#3F0E40] dark:text-[#3F0E40] group-hover:text-white"
                           : "text-white dark:text-white"
                       }`}
@@ -3677,31 +4894,33 @@ export default function ChatPanel({ username = "Hasnain" }) {
                   <div
                     key={user.id}
                     className={`group flex items-center gap-2 px-4 py-2 mb-1 text-[14px] cursor-pointer hover:bg-[#7476F11A] hover:text-white rounded-md ${
-                      activeUser?.id === user.id
+                      activeUser?.id === user.id && !showThreadsPage
                         ? "bg-[#F9EDFF] dark:bg-[#F9EDFF]"
                         : ""
                     }`}
                     onClick={() => handleUserClick(user)}
                   >
-                    <img
-                      src={user.avatar}
-                      alt={user.name}
-                      className="w-[20px] h-[20px] rounded-md"
-                    />
+                    <div className="relative">
+                      <img
+                        src={user.avatar}
+                        alt={user.name}
+                        className="w-[20px] h-[20px] rounded-md"
+                      />
+                      <span
+                        className={`absolute -bottom-1 -right-1 w-2 h-2 rounded-full border-4 border-[#350D36] ${
+                          user.online ? "bg-green-500" : "bg-gray-500"
+                        }`}
+                      />
+                    </div>
                     <span
                       className={`truncate ${
-                        activeUser?.id === user.id
+                        activeUser?.id === user.id && !showThreadsPage
                           ? "text-[#3F0E40] dark:text-[#3F0E40] group-hover:text-white"
                           : "text-white dark:text-white"
                       }`}
                     >
                       {user.name}
                     </span>
-                    <span
-                      className={`ml-auto w-2 h-2 rounded-full ${
-                        user.online ? "bg-green-500" : "bg-gray-500"
-                      }`}
-                    />
                   </div>
                 ))}
             </>
@@ -3729,31 +4948,33 @@ export default function ChatPanel({ username = "Hasnain" }) {
                   <div
                     key={user.id}
                     className={`group flex items-center gap-2 px-4 py-2 mb-1 text-[14px] cursor-pointer hover:bg-[#7476F11A] hover:text-white rounded-md ${
-                      activeUser?.id === user.id
+                      activeUser?.id === user.id && !showThreadsPage
                         ? "bg-[#F9EDFF] dark:bg-[#F9EDFF]"
                         : ""
                     }`}
                     onClick={() => handleUserClick(user)}
                   >
-                    <img
-                      src={user.avatar}
-                      alt={user.name}
-                      className="w-[20px] h-[20px] rounded-md"
-                    />
+                    <div className="relative">
+                      <img
+                        src={user.avatar}
+                        alt={user.name}
+                        className="w-[20px] h-[20px] rounded-md"
+                      />
+                      <span
+                        className={`absolute -bottom-0.5 -right-0.5 w-[10px] h-[10px] rounded-full border-[3px] border-[#350D36] ${
+                          user.online ? "bg-green-500" : "bg-gray-500"
+                        }`}
+                      />
+                    </div>
                     <span
                       className={`truncate ${
-                        activeUser?.id === user.id
+                        activeUser?.id === user.id && !showThreadsPage
                           ? "text-[#3F0E40] dark:text-[#3F0E40] group-hover:text-white"
                           : "text-white dark:text-white"
                       }`}
                     >
                       {user.name}
                     </span>
-                    <span
-                      className={`ml-auto w-2 h-2 rounded-full ${
-                        user.online ? "bg-green-500" : "bg-gray-500"
-                      }`}
-                    />
                   </div>
                 ))}
             </>
@@ -3793,7 +5014,7 @@ export default function ChatPanel({ username = "Hasnain" }) {
         </div>
 
         {/* Fixed Header */}
-        {activeUser && (
+        {activeUser && !showThreadsPage && (
           <div className="px-6 py-2 bg-gray-50 dark:bg-[#1a1a1a] m-1 rounded-t-lg">
             {/* Compact Chat Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
@@ -3807,26 +5028,22 @@ export default function ChatPanel({ username = "Hasnain" }) {
                   </div>
                 ) : (
                   <>
-                    <img
-                      src={activeUser.avatar}
-                      alt={activeUser.name}
-                      className="w-7 h-7 rounded-xl shadow"
-                    />
-                    <div>
-                      <h2 className="text-sm dark:text-white font-semibold">
+                    <div className="relative">
+                      <img
+                        src={activeUser.avatar}
+                        alt={activeUser.name}
+                        className="w-6 h-6 rounded-lg shadow"
+                      />
+                      <span
+                        className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white dark:border-[#1A1D21] ${
+                          activeUser.online ? "bg-green-500" : "bg-gray-500"
+                        }`}
+                      />
+                    </div>
+                    <div className="flex items-center">
+                      <h2 className="text-[15px] dark:text-white font-semibold">
                         {activeUser.name}
                       </h2>
-                      {!activeUser.isGroup && (
-                        <p
-                          className={`text-[10px] ${
-                            activeUser.online
-                              ? "text-green-500"
-                              : "text-gray-400"
-                          }`}
-                        >
-                          {activeUser.online ? "Online" : "Offline"}
-                        </p>
-                      )}
                     </div>
                   </>
                 )}
@@ -3925,7 +5142,794 @@ export default function ChatPanel({ username = "Hasnain" }) {
           ref={scrollRef}
           className="px-6 py-2 overflow-y-auto flex-1 space-y-4 bg-gray-50 dark:bg-[#1a1a1a] m-1 rounded-b-lg pr-3 scrollbar-thin scrollbar-thumb-[#8E8E9C2E] scrollbar-track-transparent"
         >
-          {activeUser ? (
+          {showThreadsPage ? (
+            <>
+              {/* Threads Page Header */}
+              <div className="px-0 py-0 bg-gray-50 dark:bg-[#1a1a1a] m-1 rounded-t-lg">
+                <div className="flex items-center gap-3">
+                  <h2 className="text-[15px] font-semibold text-[#3F0E40] dark:text-white">
+                    Threads
+                  </h2>
+                </div>
+              </div>
+
+              {/* Threads Content */}
+              <div className="space-y-4">
+                {(() => {
+                  const messagesWithReplies = getAllMessagesWithReplies();
+
+                  if (messagesWithReplies.length === 0) {
+                    return (
+                      <div className="flex flex-col items-center justify-center h-64 text-center">
+                        <Icon
+                          icon="icon-park-outline:message"
+                          className="w-16 h-16 text-gray-400 mb-4"
+                        />
+                        <h3 className="text-lg font-medium text-gray-600 dark:text-gray-300 mb-2">
+                          No threads yet
+                        </h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          Start a conversation and reply to messages to see
+                          threads here.
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  return messagesWithReplies.map((message, index) => (
+                    <div
+                      key={`${message.chatId}-${message.id}-${index}`}
+                      className="bg-white dark:bg-[#0D0D0D] rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700"
+                    >
+                      {/* Chat Info */}
+                      <div className="flex items-center gap-2 mb-3">
+                        <Icon
+                          icon={
+                            message.chatType === "channel"
+                              ? "mdi:hash"
+                              : "mdi:account"
+                          }
+                          className="w-4 h-4 text-[#3F0E40]"
+                        />
+                        <span className="text-sm font-medium text-[#3F0E40] dark:text-white">
+                          {message.chatName}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {message.time}
+                        </span>
+                      </div>
+
+                      {/* Original Message */}
+                      <div className="mb-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <div className="flex items-start gap-2">
+                          <img
+                            src={
+                              message.chatType === "channel"
+                                ? "/avatar1.png"
+                                : users.find((u) => u.id === message.chatId)
+                                    ?.avatar || "/avatar1.png"
+                            }
+                            alt={message.name}
+                            className="w-6 h-6 rounded-full"
+                          />
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                {message.name}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                {message.time}
+                              </span>
+                            </div>
+                            <div
+                              className="text-sm text-gray-700 dark:text-gray-300"
+                              dangerouslySetInnerHTML={{ __html: message.text }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Replies */}
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Icon
+                            icon="mdi:reply"
+                            className="w-4 h-4 text-gray-500"
+                          />
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            {message.replies.length}{" "}
+                            {message.replies.length === 1 ? "reply" : "replies"}
+                          </span>
+                        </div>
+
+                        {message.replies.map((reply, index) => (
+                          <div
+                            key={`${message.id}-reply-${index}-${reply.time}`}
+                            className={`flex items-start gap-2 pl-4 border-l-2 border-gray-200 dark:border-gray-600 ${
+                              reply.status === "unread"
+                                ? "bg-purple-50 dark:bg-purple-900/20 rounded-lg p-2 -ml-2 -mr-2"
+                                : ""
+                            }`}
+                            onClick={() => {
+                              if (reply.status === "unread") {
+                                markReplyAsRead(
+                                  message.chatId,
+                                  message.id,
+                                  reply.id
+                                );
+                              }
+                            }}
+                            style={{
+                              cursor:
+                                reply.status === "unread"
+                                  ? "pointer"
+                                  : "default",
+                            }}
+                          >
+                            <img
+                              src={
+                                users.find((u) => u.name === reply.name)
+                                  ?.avatar || "/avatar1.png"
+                              }
+                              alt={reply.name}
+                              className="w-5 h-5 rounded-full"
+                            />
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-xs font-medium text-gray-900 dark:text-white">
+                                  {reply.name}
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  {reply.time}
+                                </span>
+                              </div>
+                              <div
+                                className="text-xs text-gray-700 dark:text-gray-300"
+                                dangerouslySetInnerHTML={{ __html: reply.text }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Thread Reply Input with all features */}
+                      <div className="relative mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
+                        {threadsPageShowEmojiPickers[
+                          getThreadsPageReplyKey(message.id)
+                        ] && (
+                          <div className="absolute bottom-[60px] left-4 z-50">
+                            <Picker
+                              onEmojiClick={(emojiData) =>
+                                handleThreadsPageEmojiSelect(
+                                  message.id,
+                                  emojiData
+                                )
+                              }
+                              theme="light"
+                            />
+                          </div>
+                        )}
+
+                        <div className="px-4 py-3 border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#000000] rounded-lg flex flex-col gap-1 shadow-sm">
+                          {/* Rich Text Editor for Thread */}
+                          <ReactQuill
+                            ref={(el) => {
+                              threadsPageQuillRefs.current[
+                                getThreadsPageReplyKey(message.id)
+                              ] = el;
+                            }}
+                            theme="snow"
+                            value={getThreadsPageReplyText(message.id)}
+                            onChange={(text) => {
+                              setThreadsPageReplyText(message.id, text);
+                              // Auto-open mention list when @ is typed in threads page
+                              // Check if this message belongs to a group/channel (not direct message)
+                              if (
+                                message.chatType === "channel" &&
+                                text.includes("@") &&
+                                !threadsPageShowMentionLists[
+                                  getThreadsPageReplyKey(message.id)
+                                ]
+                              ) {
+                                const atIndex = text.lastIndexOf("@");
+                                const afterAt = text.substring(atIndex + 1);
+                                if (
+                                  atIndex >= 0 &&
+                                  (!afterAt ||
+                                    afterAt === " " ||
+                                    !afterAt.match(/^\w/))
+                                ) {
+                                  setTimeout(() => {
+                                    const key = getThreadsPageReplyKey(
+                                      message.id
+                                    );
+                                    if (!threadsPageShowMentionLists[key]) {
+                                      setThreadsPageShowMentionLists(
+                                        (prev) => ({ ...prev, [key]: true })
+                                      );
+                                      setThreadsPageMentionSearches((prev) => ({
+                                        ...prev,
+                                        [key]: "",
+                                      }));
+                                      setThreadsPageSelectedMentionIndexes(
+                                        (prev) => ({ ...prev, [key]: 0 })
+                                      );
+                                    }
+                                  }, 100);
+                                }
+                              }
+                            }}
+                            modules={modules}
+                            placeholder="Reply to this message..."
+                            className="chat-editor rounded-lg dark:bg-[#000000] dark:text-white shadow-sm"
+                          />
+
+                          {/* Thread Attachment preview */}
+                          {threadsPageAttachedFiles[
+                            getThreadsPageReplyKey(message.id)
+                          ] && (
+                            <div className="flex items-center gap-3 border rounded p-2 bg-gray-50 dark:bg-[#111] mb-1">
+                              {threadsPageAttachedPreviewUrls[
+                                getThreadsPageReplyKey(message.id)
+                              ] &&
+                              threadsPageAttachedFiles[
+                                getThreadsPageReplyKey(message.id)
+                              ].type.startsWith("image/") ? (
+                                <img
+                                  src={
+                                    threadsPageAttachedPreviewUrls[
+                                      getThreadsPageReplyKey(message.id)
+                                    ]
+                                  }
+                                  alt="preview"
+                                  className="w-20 h-20 object-cover rounded"
+                                />
+                              ) : (
+                                <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                  <Icon
+                                    icon={getFileIcon(
+                                      threadsPageAttachedFiles[
+                                        getThreadsPageReplyKey(message.id)
+                                      ]
+                                    )}
+                                    width="20"
+                                  />
+                                  <div className="flex flex-col">
+                                    <span className="font-medium">
+                                      {
+                                        threadsPageAttachedFiles[
+                                          getThreadsPageReplyKey(message.id)
+                                        ].name
+                                      }
+                                    </span>
+                                    <span className="text-xs opacity-70">
+                                      {Math.round(
+                                        threadsPageAttachedFiles[
+                                          getThreadsPageReplyKey(message.id)
+                                        ].size / 1024
+                                      )}{" "}
+                                      KB
+                                    </span>
+                                  </div>
+                                </div>
+                              )}
+                              <button
+                                onClick={() => {
+                                  const key = getThreadsPageReplyKey(
+                                    message.id
+                                  );
+                                  setThreadsPageAttachedFiles((prev) => {
+                                    const updated = { ...prev };
+                                    delete updated[key];
+                                    return updated;
+                                  });
+                                  setThreadsPageAttachedPreviewUrls((prev) => {
+                                    const updated = { ...prev };
+                                    delete updated[key];
+                                    return updated;
+                                  });
+                                }}
+                                className="ml-auto text-red-500 hover:text-red-700 text-sm"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          )}
+
+                          {/* Thread Voice Message Preview */}
+                          {threadsPageAudioBlobs[
+                            getThreadsPageReplyKey(message.id)
+                          ] &&
+                            !threadsPageIsRecordingAudio[
+                              getThreadsPageReplyKey(message.id)
+                            ] && (
+                              <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800 rounded-lg mb-2">
+                                <div className="flex items-center gap-3">
+                                  <VoicePreviewComponent
+                                    audioBlob={
+                                      threadsPageAudioBlobs[
+                                        getThreadsPageReplyKey(message.id)
+                                      ]
+                                    }
+                                    duration={
+                                      threadsPageRecordingDuration[
+                                        getThreadsPageReplyKey(message.id)
+                                      ] || 0
+                                    }
+                                    onDelete={() => {
+                                      const key = getThreadsPageReplyKey(
+                                        message.id
+                                      );
+                                      setThreadsPageAudioBlobs((prev) => {
+                                        const updated = { ...prev };
+                                        delete updated[key];
+                                        return updated;
+                                      });
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            )}
+
+                          {/* Thread Video Message Preview */}
+                          {threadsPageVideoBlobs[
+                            getThreadsPageReplyKey(message.id)
+                          ] &&
+                            !threadsPageIsRecordingVideo[
+                              getThreadsPageReplyKey(message.id)
+                            ] && (
+                              <div className="px-4 py-2 bg-gray-50 dark:bg-gray-800 rounded-lg mb-2">
+                                <div className="flex items-center gap-3">
+                                  <video
+                                    controls
+                                    src={URL.createObjectURL(
+                                      threadsPageVideoBlobs[
+                                        getThreadsPageReplyKey(message.id)
+                                      ]
+                                    )}
+                                    className="flex-1 max-h-64 rounded"
+                                  />
+                                  <button
+                                    onClick={() => {
+                                      const key = getThreadsPageReplyKey(
+                                        message.id
+                                      );
+                                      setThreadsPageVideoBlobs((prev) => {
+                                        const updated = { ...prev };
+                                        delete updated[key];
+                                        return updated;
+                                      });
+                                    }}
+                                    className="w-8 h-8 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-colors"
+                                    title="Delete video"
+                                  >
+                                    <Icon icon="mdi:delete" width="16" />
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                          {/* Thread Action row: emoji, mention, attach, send */}
+                          <div className="flex items-center gap-2 mt-1">
+                            <button
+                              onClick={() =>
+                                toggleThreadsPageEmojiPicker(message.id)
+                              }
+                              className="text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white transition"
+                            >
+                              <Icon icon="fluent:emoji-16-regular" width="20" />
+                            </button>
+
+                            {message.chatType === "channel" && (
+                              <>
+                                <button
+                                  ref={(el) => {
+                                    threadsPageMentionButtonRefs.current[
+                                      getThreadsPageReplyKey(message.id)
+                                    ] = el;
+                                  }}
+                                  onClick={() => {
+                                    const key = getThreadsPageReplyKey(
+                                      message.id
+                                    );
+                                    setThreadsPageShowMentionLists((prev) => ({
+                                      ...prev,
+                                      [key]: !prev[key],
+                                    }));
+                                  }}
+                                  className="text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white transition"
+                                  aria-haspopup="listbox"
+                                  aria-expanded={
+                                    threadsPageShowMentionLists[
+                                      getThreadsPageReplyKey(message.id)
+                                    ]
+                                  }
+                                  title="Mention someone"
+                                >
+                                  <Icon
+                                    icon="fluent:mention-16-regular"
+                                    width="20"
+                                  />
+                                </button>
+
+                                {/* Thread Mention dropdown */}
+                                {threadsPageShowMentionLists[
+                                  getThreadsPageReplyKey(message.id)
+                                ] && (
+                                  <div
+                                    ref={(el) => {
+                                      threadsPageMentionListRefs.current[
+                                        getThreadsPageReplyKey(message.id)
+                                      ] = el;
+                                    }}
+                                    className="absolute bottom-[60px] left-12 z-50 w-64 bg-white dark:bg-[#0B0B0B] border rounded shadow p-2"
+                                  >
+                                    {/* Search input */}
+                                    <input
+                                      value={
+                                        threadsPageMentionSearches[
+                                          getThreadsPageReplyKey(message.id)
+                                        ] || ""
+                                      }
+                                      onChange={(e) => {
+                                        const key = getThreadsPageReplyKey(
+                                          message.id
+                                        );
+                                        setThreadsPageMentionSearches(
+                                          (prev) => ({
+                                            ...prev,
+                                            [key]: e.target.value,
+                                          })
+                                        );
+                                        setThreadsPageSelectedMentionIndexes(
+                                          (prev) => ({
+                                            ...prev,
+                                            [key]: 0,
+                                          })
+                                        );
+                                      }}
+                                      placeholder="Search members..."
+                                      className="w-full px-2 py-1 rounded border border-[#3F0E40] mb-2 text-sm bg-white dark:bg-[#111] dark:text-white focus:outline-none focus:ring-0"
+                                      autoFocus
+                                    />
+
+                                    {/* Members list */}
+                                    <ul className="max-h-48 overflow-auto">
+                                      {(() => {
+                                        const key = getThreadsPageReplyKey(
+                                          message.id
+                                        );
+                                        const searchValue =
+                                          threadsPageMentionSearches[key] || "";
+                                        const chatGroupMembers =
+                                          getGroupMembersForChat(
+                                            message.chatId
+                                          );
+                                        const filteredMembers = [
+                                          ...(searchValue === "" ||
+                                          "here".includes(
+                                            searchValue.toLowerCase()
+                                          )
+                                            ? [
+                                                {
+                                                  name: "here",
+                                                  id: "here",
+                                                  avatar: "",
+                                                },
+                                              ]
+                                            : []),
+                                          ...chatGroupMembers.filter((m) =>
+                                            m.name
+                                              .toLowerCase()
+                                              .includes(
+                                                searchValue.toLowerCase()
+                                              )
+                                          ),
+                                        ];
+
+                                        return (
+                                          <>
+                                            {filteredMembers.map(
+                                              (member, index) => (
+                                                <li
+                                                  key={member.id}
+                                                  onClick={() =>
+                                                    handleThreadsPageSelectMention(
+                                                      member,
+                                                      message.id
+                                                    )
+                                                  }
+                                                  className={`flex items-center gap-2 p-2 cursor-pointer rounded ${
+                                                    index ===
+                                                    (threadsPageSelectedMentionIndexes[
+                                                      key
+                                                    ] || 0)
+                                                      ? "bg-blue-100 dark:bg-blue-900/30"
+                                                      : "hover:bg-gray-100 dark:hover:bg-[#111]"
+                                                  }`}
+                                                >
+                                                  {member.name === "here" ? (
+                                                    <>
+                                                      <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
+                                                        <span className="text-white text-xs font-bold">
+                                                          @
+                                                        </span>
+                                                      </div>
+                                                      <div className="text-sm font-medium">
+                                                        @here
+                                                      </div>
+                                                      <div className="text-xs text-gray-500 ml-auto">
+                                                        Tag everyone
+                                                      </div>
+                                                    </>
+                                                  ) : (
+                                                    <>
+                                                      <img
+                                                        src={member.avatar}
+                                                        alt={member.name}
+                                                        className="w-6 h-6 rounded-full"
+                                                      />
+                                                      <div className="text-sm">
+                                                        {member.name}
+                                                      </div>
+                                                    </>
+                                                  )}
+                                                </li>
+                                              )
+                                            )}
+
+                                            {/* If no matches */}
+                                            {filteredMembers.length === 0 &&
+                                              searchValue !== "" &&
+                                              !"here".includes(
+                                                searchValue.toLowerCase()
+                                              ) && (
+                                                <li className="text-sm text-gray-500 px-2 py-1">
+                                                  No members found
+                                                </li>
+                                              )}
+                                          </>
+                                        );
+                                      })()}
+                                    </ul>
+                                  </div>
+                                )}
+                              </>
+                            )}
+
+                            <label className="cursor-pointer text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white transition">
+                              <Icon icon="mdi:paperclip" width="20" />
+                              <input
+                                ref={(el) => {
+                                  threadsPageFileInputRefs.current[
+                                    getThreadsPageReplyKey(message.id)
+                                  ] = el;
+                                }}
+                                type="file"
+                                accept="*/*"
+                                className="hidden"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    const key = getThreadsPageReplyKey(
+                                      message.id
+                                    );
+                                    setThreadsPageAttachedFiles((prev) => ({
+                                      ...prev,
+                                      [key]: file,
+                                    }));
+                                    if (file.type.startsWith("image/")) {
+                                      const reader = new FileReader();
+                                      reader.onload = (e) => {
+                                        setThreadsPageAttachedPreviewUrls(
+                                          (prev) => ({
+                                            ...prev,
+                                            [key]: e.target.result,
+                                          })
+                                        );
+                                      };
+                                      reader.readAsDataURL(file);
+                                    }
+                                  }
+                                }}
+                              />
+                            </label>
+
+                            {/* Voice record icon */}
+                            <button
+                              onClick={() => {
+                                const key = getThreadsPageReplyKey(message.id);
+                                if (!threadsPageIsRecordingAudio[key]) {
+                                  // Start recording
+                                  handleThreadsPageStartAudio(message.id);
+                                } else if (threadsPageIsPaused[key]) {
+                                  // Resume recording
+                                  handleThreadsPagePauseResumeAudio(message.id);
+                                } else {
+                                  // Pause recording
+                                  handleThreadsPagePauseResumeAudio(message.id);
+                                }
+                              }}
+                              className={`${
+                                threadsPageIsRecordingAudio[
+                                  getThreadsPageReplyKey(message.id)
+                                ]
+                                  ? "text-red-500"
+                                  : "text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
+                              } transition-colors`}
+                            >
+                              <Icon
+                                icon={
+                                  !threadsPageIsRecordingAudio[
+                                    getThreadsPageReplyKey(message.id)
+                                  ]
+                                    ? "mdi:microphone"
+                                    : threadsPageIsPaused[
+                                        getThreadsPageReplyKey(message.id)
+                                      ]
+                                    ? "mdi:play"
+                                    : "mdi:pause"
+                                }
+                                className="w-5 h-5"
+                              />
+                            </button>
+
+                            {/* Stop recording button - only show when recording */}
+                            {threadsPageIsRecordingAudio[
+                              getThreadsPageReplyKey(message.id)
+                            ] && (
+                              <button
+                                onClick={() =>
+                                  handleThreadsPageStopAudio(message.id)
+                                }
+                                className="text-red-600 hover:text-red-700 transition-colors"
+                                title="Stop recording"
+                              >
+                                <Icon icon="mdi:stop" className="w-5 h-5" />
+                              </button>
+                            )}
+
+                            {/* Video record icon */}
+                            <button
+                              onClick={() =>
+                                threadsPageIsRecordingVideo[
+                                  getThreadsPageReplyKey(message.id)
+                                ]
+                                  ? handleThreadsPageStopVideo(message.id)
+                                  : handleThreadsPageStartVideo(message.id)
+                              }
+                              className={`${
+                                threadsPageIsRecordingVideo[
+                                  getThreadsPageReplyKey(message.id)
+                                ]
+                                  ? "text-red-500"
+                                  : "text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
+                              } transition-colors`}
+                            >
+                              <Icon icon="mdi:video" className="w-5 h-5" />
+                            </button>
+
+                            {/* Send */}
+                            <button
+                              onClick={() =>
+                                handleThreadsPageSubmitReply(message)
+                              }
+                              className="ml-auto"
+                            >
+                              <Icon
+                                icon="material-symbols-light:send-rounded"
+                                width="24"
+                                className="text-[#3F0E40]"
+                              />
+                            </button>
+                          </div>
+
+                          {/* 🔹 Threads Page Recording indicator with animated waves */}
+                          {threadsPageIsRecordingAudio[
+                            getThreadsPageReplyKey(message.id)
+                          ] && (
+                            <div className="px-4 py-3 bg-red-50 dark:bg-red-900/20 rounded-lg mt-2">
+                              <div className="flex items-center gap-3">
+                                {/* Pause/Resume Button */}
+                                <button
+                                  onClick={() =>
+                                    handleThreadsPagePauseResumeAudio(
+                                      message.id
+                                    )
+                                  }
+                                  className="w-8 h-8 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-colors"
+                                >
+                                  <Icon
+                                    icon={
+                                      threadsPageIsPaused[
+                                        getThreadsPageReplyKey(message.id)
+                                      ]
+                                        ? "mdi:play"
+                                        : "mdi:pause"
+                                    }
+                                    width="16"
+                                  />
+                                </button>
+
+                                {/* Waveform */}
+                                <div className="flex items-center gap-1 flex-1">
+                                  {[...Array(8)].map((_, i) => (
+                                    <div
+                                      key={i}
+                                      className={`w-1 bg-red-500 rounded-full transition-all duration-300 ${
+                                        !threadsPageIsPaused[
+                                          getThreadsPageReplyKey(message.id)
+                                        ]
+                                          ? "animate-pulse"
+                                          : ""
+                                      }`}
+                                      style={{
+                                        height: `${Math.random() * 20 + 10}px`,
+                                        animationDelay: `${i * 0.1}s`,
+                                      }}
+                                    />
+                                  ))}
+                                </div>
+
+                                {/* Stop Button */}
+                                <button
+                                  onClick={() =>
+                                    handleThreadsPageStopAudio(message.id)
+                                  }
+                                  className="w-8 h-8 rounded-full bg-red-600 text-white flex items-center justify-center hover:bg-red-700 transition-colors"
+                                >
+                                  <Icon icon="mdi:stop" width="16" />
+                                </button>
+                              </div>
+
+                              <div className="mt-2 text-xs text-red-600 dark:text-red-400">
+                                {threadsPageIsPaused[
+                                  getThreadsPageReplyKey(message.id)
+                                ]
+                                  ? "Recording paused"
+                                  : "Recording audio..."}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* 🔹 Threads Page Video Recording Preview */}
+                          {threadsPageIsRecordingVideo[
+                            getThreadsPageReplyKey(message.id)
+                          ] && (
+                            <div className="px-4 py-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg mt-2">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center">
+                                  <Icon icon="mdi:video" width="16" />
+                                </div>
+
+                                <div className="flex-1">
+                                  <div className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                                    Recording video...
+                                  </div>
+                                  <div className="text-xs text-blue-500 dark:text-blue-300">
+                                    Click stop to finish recording
+                                  </div>
+                                </div>
+
+                                <button
+                                  onClick={() =>
+                                    handleThreadsPageStopVideo(message.id)
+                                  }
+                                  className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 transition-colors"
+                                >
+                                  <Icon icon="mdi:stop" width="16" />
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ));
+                })()}
+              </div>
+            </>
+          ) : activeUser ? (
             <>
               {/* ✅ Content depending on tab */}
               {activeTab === "messages" && (
@@ -3953,7 +5957,8 @@ export default function ChatPanel({ username = "Hasnain" }) {
                         className={`flex ${
                           isRight ? "justify-end" : "justify-start"
                         } group relative ${
-                          highlightedMessageId === msg.id
+                          highlightedMessageId === msg.id ||
+                          highlightedFileId === msg.id
                             ? "bg-purple-100 dark:bg-purple-900 rounded-lg p-2 -m-2"
                             : ""
                         }`}
@@ -4449,12 +6454,15 @@ export default function ChatPanel({ username = "Hasnain" }) {
         {threadOpen && threadMsg && (
           <div className="fixed right-0 top-0 bottom-0 w-96 bg-white dark:bg-[#0B0B0B] border-l border-gray-200 z-50 p-4 flex flex-col">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold">Thread</h3>
+              <h3 className="font-semibold text-gray-800 dark:text-white">
+                Thread
+              </h3>
               <button
                 onClick={() => closeThread()}
-                className="text-gray-500 hover:text-gray-700"
+                className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                title="Close thread"
               >
-                <Icon icon="mdi:close" width="18" />
+                <Icon icon="mdi:close" width="20" />
               </button>
             </div>
 
@@ -4504,7 +6512,8 @@ export default function ChatPanel({ username = "Hasnain" }) {
                   <div
                     key={r.id}
                     className={`group flex items-start gap-3 relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${
-                      highlightedMessageId === r.id
+                      highlightedMessageId === r.id ||
+                      highlightedFileId === r.id
                         ? "bg-purple-100 dark:bg-purple-900"
                         : ""
                     }`}
@@ -4728,7 +6737,30 @@ export default function ChatPanel({ username = "Hasnain" }) {
                   }}
                   theme="snow"
                   value={threadReplyText}
-                  onChange={setThreadReplyText}
+                  onChange={(newValue) => {
+                    setThreadReplyText(newValue);
+                    // Auto-open mention list when @ is typed in thread reply
+                    if (
+                      activeUser?.isGroup &&
+                      newValue.includes("@") &&
+                      !threadShowMentionList
+                    ) {
+                      const atIndex = newValue.lastIndexOf("@");
+                      const afterAt = newValue.substring(atIndex + 1);
+                      if (
+                        atIndex >= 0 &&
+                        (!afterAt || afterAt === " " || !afterAt.match(/^\w/))
+                      ) {
+                        setTimeout(() => {
+                          if (!threadShowMentionList) {
+                            setThreadShowMentionList(true);
+                            setThreadMentionSearch("");
+                            setThreadSelectedMentionIndex(0);
+                          }
+                        }, 100);
+                      }
+                    }
+                  }}
                   modules={modules}
                   placeholder="Reply to thread..."
                   className="chat-editor rounded-lg dark:bg-[#000000] dark:text-white shadow-sm"
@@ -4836,9 +6868,10 @@ export default function ChatPanel({ username = "Hasnain" }) {
                           {/* Search input */}
                           <input
                             value={threadMentionSearch}
-                            onChange={(e) =>
-                              setThreadMentionSearch(e.target.value)
-                            }
+                            onChange={(e) => {
+                              setThreadMentionSearch(e.target.value);
+                              setThreadSelectedMentionIndex(0);
+                            }}
                             placeholder="Search members..."
                             className="w-full px-2 py-1 rounded border border-[#3F0E40] mb-2 text-sm bg-white dark:bg-[#111] dark:text-white focus:outline-none focus:ring-0"
                             autoFocus
@@ -4846,37 +6879,77 @@ export default function ChatPanel({ username = "Hasnain" }) {
 
                           {/* Members list */}
                           <ul className="max-h-48 overflow-auto">
-                            {groupMembers
-                              .filter((m) =>
-                                m.name
-                                  .toLowerCase()
-                                  .includes(threadMentionSearch.toLowerCase())
-                              )
-                              .map((m) => (
+                            {(() => {
+                              const filteredMembers = [
+                                ...(threadMentionSearch === "" ||
+                                "here".includes(
+                                  threadMentionSearch.toLowerCase()
+                                )
+                                  ? [{ name: "here", id: "here", avatar: "" }]
+                                  : []),
+                                ...groupMembers.filter((m) =>
+                                  m.name
+                                    .toLowerCase()
+                                    .includes(threadMentionSearch.toLowerCase())
+                                ),
+                              ];
+
+                              return filteredMembers.map((member, index) => (
                                 <li
-                                  key={m.id}
-                                  onClick={() => handleThreadSelectMention(m)}
-                                  className="flex items-center gap-2 p-2 hover:bg-gray-100 dark:hover:bg-[#111] cursor-pointer rounded"
+                                  key={member.id}
+                                  onClick={() =>
+                                    handleThreadSelectMention(member)
+                                  }
+                                  className={`flex items-center gap-2 p-2 cursor-pointer rounded ${
+                                    index === threadSelectedMentionIndex
+                                      ? "bg-blue-100 dark:bg-blue-900/30"
+                                      : "hover:bg-gray-100 dark:hover:bg-[#111]"
+                                  }`}
                                 >
-                                  <img
-                                    src={m.avatar}
-                                    alt={m.name}
-                                    className="w-6 h-6 rounded-full"
-                                  />
-                                  <div className="text-sm">{m.name}</div>
+                                  {member.name === "here" ? (
+                                    <>
+                                      <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
+                                        <span className="text-white text-xs font-bold">
+                                          @
+                                        </span>
+                                      </div>
+                                      <div className="text-sm font-medium">
+                                        @here
+                                      </div>
+                                      <div className="text-xs text-gray-500 ml-auto">
+                                        Tag everyone
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <img
+                                        src={member.avatar}
+                                        alt={member.name}
+                                        className="w-6 h-6 rounded-full"
+                                      />
+                                      <div className="text-sm">
+                                        {member.name}
+                                      </div>
+                                    </>
+                                  )}
                                 </li>
-                              ))}
+                              ));
+                            })()}
 
                             {/* If no matches */}
                             {groupMembers.filter((m) =>
                               m.name
                                 .toLowerCase()
                                 .includes(threadMentionSearch.toLowerCase())
-                            ).length === 0 && (
-                              <li className="text-sm text-gray-500 px-2 py-1">
-                                No members found
-                              </li>
-                            )}
+                            ).length === 0 &&
+                              threadMentionSearch !== "" &&
+                              !"here".includes(
+                                threadMentionSearch.toLowerCase()
+                              ) && (
+                                <li className="text-sm text-gray-500 px-2 py-1">
+                                  No members found
+                                </li>
+                              )}
                           </ul>
                         </div>
                       )}
@@ -5052,7 +7125,7 @@ export default function ChatPanel({ username = "Hasnain" }) {
         )}
 
         {/* Input Footer */}
-        {activeUser && (
+        {activeUser && !showThreadsPage && (
           <div className="relative">
             {showEmojiPicker && (
               <div className="absolute bottom-[60px] left-4 z-50">
@@ -5068,7 +7141,33 @@ export default function ChatPanel({ username = "Hasnain" }) {
                 }}
                 theme="snow"
                 value={message}
-                onChange={setMessage}
+                onChange={(newValue) => {
+                  setMessage(newValue);
+                  // Auto-open mention list when @ is typed (but not if it's already a complete mention)
+                  if (
+                    activeUser?.isGroup &&
+                    newValue.includes("@") &&
+                    !showMentionList
+                  ) {
+                    // Check if the @ is at the end or followed by non-word characters
+                    const atIndex = newValue.lastIndexOf("@");
+                    const afterAt = newValue.substring(atIndex + 1);
+                    // Only open if @ is at the end or followed by space/non-word character
+                    if (
+                      atIndex >= 0 &&
+                      (!afterAt || afterAt === " " || !afterAt.match(/^\w/))
+                    ) {
+                      // Add small delay to prevent conflicts with mention insertion
+                      setTimeout(() => {
+                        if (!showMentionList) {
+                          setShowMentionList(true);
+                          setMentionSearch("");
+                          setSelectedMentionIndex(0);
+                        }
+                      }, 100);
+                    }
+                  }
+                }}
                 modules={modules}
                 placeholder="Type a message"
                 className="chat-editor rounded-lg dark:bg-[#000000] dark:text-white shadow-sm"
@@ -5130,12 +7229,15 @@ export default function ChatPanel({ username = "Hasnain" }) {
                     {showMentionList && (
                       <div
                         ref={mentionListRef}
-                        className="absolute bottom-[60px] left-12 z-50 w-64 bg-white dark:bg-[#0B0B0B] border rounded shadow p-2"
+                        className="absolute bottom-[80px] left-12 z-50 w-64 bg-white dark:bg-[#0B0B0B] border rounded shadow p-2"
                       >
                         {/* Search input */}
                         <input
                           value={mentionSearch}
-                          onChange={(e) => setMentionSearch(e.target.value)}
+                          onChange={(e) => {
+                            setMentionSearch(e.target.value);
+                            setSelectedMentionIndex(0);
+                          }}
                           placeholder="Search members..."
                           className="w-full px-2 py-1 rounded border border-[#3F0E40] mb-2 text-sm bg-white dark:bg-[#111] dark:text-white focus:outline-none focus:ring-0"
                           autoFocus
@@ -5143,37 +7245,69 @@ export default function ChatPanel({ username = "Hasnain" }) {
 
                         {/* Members list */}
                         <ul className="max-h-48 overflow-auto">
-                          {groupMembers
-                            .filter((m) =>
-                              m.name
-                                .toLowerCase()
-                                .includes(mentionSearch.toLowerCase())
-                            )
-                            .map((m) => (
+                          {(() => {
+                            const filteredMembers = [
+                              ...(mentionSearch === "" ||
+                              "here".includes(mentionSearch.toLowerCase())
+                                ? [{ name: "here", id: "here", avatar: "" }]
+                                : []),
+                              ...groupMembers.filter((m) =>
+                                m.name
+                                  .toLowerCase()
+                                  .includes(mentionSearch.toLowerCase())
+                              ),
+                            ];
+
+                            return filteredMembers.map((member, index) => (
                               <li
-                                key={m.id}
-                                onClick={() => handleSelectMention(m)}
-                                className="flex items-center gap-2 p-2 hover:bg-gray-100 dark:hover:bg-[#111] cursor-pointer rounded"
+                                key={member.id}
+                                onClick={() => handleSelectMention(member)}
+                                className={`flex items-center gap-2 p-2 cursor-pointer rounded ${
+                                  index === selectedMentionIndex
+                                    ? "bg-blue-100 dark:bg-blue-900/30"
+                                    : "hover:bg-gray-100 dark:hover:bg-[#111]"
+                                }`}
                               >
-                                <img
-                                  src={m.avatar}
-                                  alt={m.name}
-                                  className="w-6 h-6 rounded-full"
-                                />
-                                <div className="text-sm">{m.name}</div>
+                                {member.name === "here" ? (
+                                  <>
+                                    <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
+                                      <span className="text-white text-xs font-bold">
+                                        @
+                                      </span>
+                                    </div>
+                                    <div className="text-sm font-medium">
+                                      @here
+                                    </div>
+                                    <div className="text-xs text-gray-500 ml-auto">
+                                      Tag everyone
+                                    </div>
+                                  </>
+                                ) : (
+                                  <>
+                                    <img
+                                      src={member.avatar}
+                                      alt={member.name}
+                                      className="w-6 h-6 rounded-full"
+                                    />
+                                    <div className="text-sm">{member.name}</div>
+                                  </>
+                                )}
                               </li>
-                            ))}
+                            ));
+                          })()}
 
                           {/* If no matches */}
                           {groupMembers.filter((m) =>
                             m.name
                               .toLowerCase()
                               .includes(mentionSearch.toLowerCase())
-                          ).length === 0 && (
-                            <li className="text-sm text-gray-500 px-2 py-1">
-                              No members found
-                            </li>
-                          )}
+                          ).length === 0 &&
+                            mentionSearch !== "" &&
+                            !"here".includes(mentionSearch.toLowerCase()) && (
+                              <li className="text-sm text-gray-500 px-2 py-1">
+                                No members found
+                              </li>
+                            )}
                         </ul>
                       </div>
                     )}
